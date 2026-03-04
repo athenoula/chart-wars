@@ -183,6 +183,7 @@ const Game = {
         document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
         document.getElementById(`screen-${screenId}`).classList.add("active");
         Game.state.screen = screenId;
+        window.scrollTo(0, 0);
     },
 
     // ── Setup Helpers ───────────────────────────────────────────────────────────
