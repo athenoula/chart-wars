@@ -2,8 +2,8 @@
 // Controls screen flow, audio playback, answer collection, and scoring integration.
 
 const DIFFICULTY_INFO = {
-    1: { name: "Party", subtitle: "#1 Hits Only", desc: "Only songs that hit #1 on the Billboard Hot 100. The biggest songs ever." },
-    2: { name: "Easy", subtitle: "Top 10 Hits", desc: "All songs that reached the Billboard Top 10. You've definitely heard these." },
+    1: { name: "Party", subtitle: "#1 Hits Only", desc: "Only the biggest hits in the UK. The songs everyone knows." },
+    2: { name: "Easy", subtitle: "Top 10 Hits", desc: "All songs that reached the UK Top 10. You've definitely heard these." },
     3: { name: "Medium", subtitle: "Top 20 Hits", desc: "Songs that reached the Top 20. Popular but not always household names." },
     4: { name: "Hard", subtitle: "Top 40 Hits", desc: "The full Top 40. Includes some deep cuts from the charts." },
     5: { name: "Nerd", subtitle: "Positions 21\u201340 Only", desc: "Only songs that peaked between #21 and #40. No easy ones here." }
