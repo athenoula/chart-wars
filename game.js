@@ -343,9 +343,36 @@ const Game = {
         controls.style.display = "block";
 
         Game.state.audio.src = track.previewUrl;
-        Game.state.audio.play().catch(() => {
-            error.style.display = "block";
+
+        // Auto-skip if audio fails (expired preview URL)
+        const onAudioError = () => {
+            Game.state.audio.removeEventListener("error", onAudioError);
+            console.warn(`⚠ Audio failed for "${track.title}" — skipping`);
             btn.classList.remove("playing");
+            if (Game.state.clipInterval) {
+                clearInterval(Game.state.clipInterval);
+                Game.state.clipInterval = null;
+            }
+            // Pick a different track and retry (up to 3 attempts)
+            Game.state.audioRetries = (Game.state.audioRetries || 0) + 1;
+            if (Game.state.audioRetries < 4) {
+                const available = Game.filterTracks();
+                if (available.length > 0) {
+                    Game.state.currentTrack = available[Math.floor(Math.random() * available.length)];
+                    Game.state.usedTracks.add(Game.state.currentTrack.title + "|" + Game.state.currentTrack.artist);
+                    Game.playClip();
+                    return;
+                }
+            }
+            // Give up after retries
+            Game.state.audioRetries = 0;
+            error.style.display = "block";
+        };
+        Game.state.audio.addEventListener("error", onAudioError, { once: true });
+        Game.state.audioRetries = Game.state.audioRetries || 0;
+
+        Game.state.audio.play().catch(() => {
+            // play() rejection is handled by the error event above
         });
 
         const startTime = Date.now();
