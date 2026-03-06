@@ -178,8 +178,9 @@ h1, h2, h3 { margin: 0; }
     cursor: pointer;
     font-size: 0.9em;
 }
-.decade-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; }
+.decade-btn.active { background: #9333ea; border-color: #9333ea; color: #fff; }
 .decade-count { font-size: 0.8em; color: var(--text-muted); font-weight: normal; }
+.decades-summary { font-size: 0.75em; color: #c084fc; margin: 4px 0 0; letter-spacing: 0.05em; }
 
 /* Leaderboard */
 .leaderboard-meta { display: block; font-size: 0.7em; color: var(--text-muted); margin-top: 2px; }
@@ -441,6 +442,27 @@ h1, h2, h3 { margin: 0; }
     font-size: 0.9em;
 }
 .timer-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; }
+
+/* Quit button */
+.quit-btn {
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+    background: transparent;
+    box-shadow: none;
+}
+.quit-btn:hover { border-color: var(--score-wrong); color: var(--score-wrong); background: rgba(255, 68, 102, 0.1); }
+
+/* Host decade buttons — match purple style */
+.host-decade-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 10px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.host-decade-btn.active { background: #9333ea; border-color: #9333ea; color: #fff; }
 
 /* ── Survival Mode ──────────────────────────────────────────────────────── */
 

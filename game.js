@@ -136,6 +136,15 @@ const Game = {
             Game.showScreen("title");
         });
 
+        // Quit
+        document.getElementById("btn-quit-game").addEventListener("click", () => {
+            Game.state.audio.pause();
+            Game.state.audio.currentTime = 0;
+            if (Game.state.clipInterval) { clearInterval(Game.state.clipInterval); Game.state.clipInterval = null; }
+            Game.resetGame();
+            Game.showScreen("title");
+        });
+
         // ── Multiplayer Buttons ──────────────────────────────────────────────
         Game._bindMultiplayerEvents();
     },
@@ -232,6 +241,9 @@ const Game = {
         document.getElementById("btn-mp-reveal").addEventListener("click", () => {
             Game._mpCollectAndReveal();
         });
+
+        // Host lock-in button
+        document.getElementById("btn-host-lock-in").addEventListener("click", Game._hostLockIn);
     },
 
     // ── Host Decade Count ────────────────────────────────────────────────────
@@ -338,9 +350,14 @@ const Game = {
         const mp = Game.state.multiplayer;
         const players = mp.players;
 
-        // Set up teams from players
-        Game.state.teams = Object.entries(players).map(([pid, p]) => p.name);
-        Game.state.scores = {};
+        // Add host as a player too
+        mp.hostPlayerId = mp.hostId;
+        mp.hostName = "Host";
+        mp.hostLocked = false;
+
+        // Set up teams from players + host
+        Game.state.teams = ["Host", ...Object.entries(players).map(([pid, p]) => p.name)];
+        Game.state.scores = { "Host": 0 };
         Object.entries(players).forEach(([pid, p]) => {
             Game.state.scores[p.name] = 0;
         });
@@ -393,11 +410,15 @@ const Game = {
         document.getElementById("btn-play-clip").classList.remove("playing");
         document.getElementById("volume-indicator").textContent = "🔇";
         document.getElementById("mp-answer-status").style.display = "none";
+        document.getElementById("mp-host-answer").style.display = "none";
 
         // Hide pass-and-play controls, show multiplayer status
         document.getElementById("btn-ready-answer").style.display = "none";
         document.getElementById("btn-replay-clip").style.display = "none";
         document.getElementById("btn-skip-track").style.display = "none";
+
+        // Show selected decades summary
+        Game._updateDecadesSummary();
 
         Game.state.audio.pause();
         Game.state.audio.currentTime = 0;
@@ -420,11 +441,22 @@ const Game = {
     _mpStartAnswering() {
         const mp = Game.state.multiplayer;
         const playerCount = Object.keys(mp.players).length;
+        mp.hostLocked = false;
 
         // Show answer status
         document.getElementById("mp-answer-status").style.display = "block";
         document.getElementById("mp-answered-count").textContent = "0";
         document.getElementById("mp-player-total").textContent = playerCount;
+
+        // Show host answer form
+        const hostAnswer = document.getElementById("mp-host-answer");
+        hostAnswer.style.display = "block";
+        document.getElementById("inp-host-artist").value = "";
+        document.getElementById("inp-host-title").value = "";
+        document.getElementById("inp-host-year").value = "";
+        document.getElementById("btn-host-lock-in").textContent = "Lock In";
+        document.getElementById("btn-host-lock-in").disabled = false;
+        setTimeout(() => document.getElementById("inp-host-artist").focus(), 100);
 
         // Set timer
         const timerEnd = Date.now() + (mp.timerSeconds * 1000);
@@ -489,17 +521,38 @@ const Game = {
         };
         const standings = {};
 
+        // Score host's answer
+        const hostGuesses = mp.hostAnswer || { artist: "", title: "", year: "" };
+        const hostScore = Scoring.calculateRoundScore(track, hostGuesses);
+        Game.state.scores["Host"] = (Game.state.scores["Host"] || 0) + hostScore.total;
+        roundStats.teams.push({ name: "Host", score: hostScore.total });
+
+        const hostCard = document.createElement("div");
+        hostCard.className = "team-result-card";
+        hostCard.innerHTML = `
+            <h4 class="cyan">Host (you)</h4>
+            ${Game._scoreRow("Artist", hostGuesses.artist, hostScore.artist)}
+            ${Game._scoreRow("Title", hostGuesses.title, hostScore.title)}
+            ${Game._scoreRow("Year", hostGuesses.year, hostScore.year)}
+            <div class="score-row score-total-row">
+                <span>Round Total</span>
+                <span class="round-total ${hostScore.total >= 6 ? 'text-green' : hostScore.total > 0 ? 'text-amber' : 'text-red'}">${hostScore.total} pts</span>
+            </div>
+        `;
+        resultsContainer.appendChild(hostCard);
+
+        standings["host"] = { name: "Host", score: Game.state.scores["Host"] };
+
+        // Score each remote player's answer
         Object.entries(mp.players).forEach(([pid, player]) => {
             const guesses = answers[pid] || { artist: "", title: "", year: "" };
             const score = Scoring.calculateRoundScore(track, guesses);
 
-            // Update local scores
             if (!Game.state.scores[player.name]) Game.state.scores[player.name] = 0;
             Game.state.scores[player.name] += score.total;
 
             roundStats.teams.push({ name: player.name, score: score.total });
 
-            // Build result card
             const card = document.createElement("div");
             card.className = "team-result-card";
             card.innerHTML = `
@@ -514,7 +567,6 @@ const Game = {
             `;
             resultsContainer.appendChild(card);
 
-            // Firebase results for players to read
             firebaseResults[pid] = {
                 artist: score.artist,
                 title: score.title,
@@ -536,8 +588,8 @@ const Game = {
         document.getElementById("reveal-artist").textContent = track.artist;
         document.getElementById("reveal-year").textContent = track.year;
 
-        // Update teams array for score rendering
-        Game.state.teams = Object.values(mp.players).map(p => p.name);
+        // Update teams array for score rendering (host + players)
+        Game.state.teams = ["Host", ...Object.values(mp.players).map(p => p.name)];
 
         // Running Score
         Game._renderScoreList("running-score-list");
@@ -814,6 +866,9 @@ const Game = {
             qCounterTotal.style.display = "";
             qCounterPrefix.textContent = "Question";
         }
+
+        // Show selected decades summary
+        Game._updateDecadesSummary();
 
         Game.state.audio.pause();
         Game.state.audio.currentTime = 0;
@@ -1241,6 +1296,35 @@ const Game = {
             container.classList.add("survived");
             textEl.textContent = "You survived!";
         }
+    },
+
+    // ── Host Answer Lock-in (Multiplayer) ─────────────────────────────────────
+    _hostLockIn() {
+        const mp = Game.state.multiplayer;
+        if (mp.hostLocked) return;
+        mp.hostLocked = true;
+
+        mp.hostAnswer = {
+            artist: document.getElementById("inp-host-artist").value,
+            title: document.getElementById("inp-host-title").value,
+            year: document.getElementById("inp-host-year").value
+        };
+
+        document.getElementById("btn-host-lock-in").textContent = "Locked In!";
+        document.getElementById("btn-host-lock-in").disabled = true;
+    },
+
+    // ── Decades Summary Text ───────────────────────────────────────────────────
+    _updateDecadesSummary() {
+        const el = document.getElementById("decades-summary");
+        const sorted = [...Game.state.decades].sort();
+        if (sorted.length === 0 || sorted.length === 8) {
+            el.style.display = "none";
+            return;
+        }
+        const labels = sorted.map(d => d + "s");
+        el.textContent = labels.join(" / ");
+        el.style.display = "block";
     },
 
     _bindLeaderboardTabs() {

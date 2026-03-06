@@ -169,6 +169,7 @@
         <section id="screen-play" class="screen">
             <div class="glass-card center-content">
                 <div class="question-counter"><span id="q-counter-prefix">Question</span> <span id="current-q-num">1</span><span id="q-counter-total"> of <span id="total-q-num">10</span></span></div>
+                <p id="decades-summary" class="decades-summary" style="display: none;"></p>
                 <div id="survival-lives" class="survival-lives" style="display: none;"></div>
 
                 <div class="play-container">
@@ -193,10 +194,19 @@
 
                 <!-- Multiplayer: answer status (host only) -->
                 <div id="mp-answer-status" style="display:none;">
+                    <div id="mp-host-answer" style="display:none;">
+                        <h3 class="neon-text cyan" style="font-size: 1em; margin-bottom: 8px;">Your Answer</h3>
+                        <input type="text" id="inp-host-artist" class="neon-input" placeholder="Artist" autocomplete="off">
+                        <input type="text" id="inp-host-title" class="neon-input" placeholder="Song Title" autocomplete="off">
+                        <input type="number" id="inp-host-year" class="neon-input" placeholder="Year" inputmode="numeric" autocomplete="off">
+                        <button id="btn-host-lock-in" class="neon-button cyan" style="margin-top: 8px;">Lock In</button>
+                    </div>
                     <p class="answer-status-text"><span id="mp-answered-count">0</span> / <span id="mp-player-total">0</span> players answered</p>
                     <div id="mp-answer-timer" class="answer-timer" style="display:none;"></div>
                     <button id="btn-mp-reveal" class="neon-button cyan" style="margin-top: 10px;">Reveal Answers</button>
                 </div>
+
+                <button id="btn-quit-game" class="neon-button quit-btn" style="margin-top: 20px; font-size: 0.8em;">Quit</button>
             </div>
         </section>
 
