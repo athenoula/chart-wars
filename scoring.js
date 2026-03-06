@@ -179,8 +179,21 @@ const Scoring = {
             return { points: 6, status: "full", reason: null };
         }
 
+        let points = 0;
+        const reasons = [];
+
+        if (Math.abs(guess - correct) === 1) {
+            points += 1;
+            reasons.push("1 year out");
+        }
+
         if (Math.floor(guess / 10) === Math.floor(correct / 10)) {
-            return { points: 1, status: "partial", reason: `Correct decade (${Math.floor(correct / 10) * 10}s)` };
+            points += 1;
+            reasons.push(`Correct decade (${Math.floor(correct / 10) * 10}s)`);
+        }
+
+        if (points > 0) {
+            return { points, status: "partial", reason: reasons.join(" + ") };
         }
 
         return { points: 0, status: "wrong", reason: null };
