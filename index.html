@@ -19,8 +19,10 @@
                 <h1 class="neon-text cyan">WARS</h1>
                 <p class="subtitle">Name the artist. Name the track. Name the year.</p>
                 <button id="btn-new-game" class="neon-button">New Game</button>
+                <button id="btn-host-game" class="neon-button cyan" style="margin-top: 10px;">Host Online Game</button>
+                <button id="btn-join-game" class="neon-button" style="margin-top: 10px;">Join Game</button>
                 <button id="btn-leaderboard" class="neon-button cyan" style="margin-top: 10px;">Leaderboard</button>
-                <footer class="footer-text">UK Top Tracks + All-Time Classics | 1942 — 2026 | 758 Tracks</footer>
+                <footer class="footer-text">UK Top Tracks + All-Time Classics | 1942 — 2026 | 786 Tracks</footer>
             </div>
         </section>
 
@@ -31,6 +33,84 @@
                 <p class="subtext">Top 10 Solo Scores</p>
                 <div id="leaderboard-content"></div>
                 <button id="btn-leaderboard-back" class="neon-button">Back</button>
+            </div>
+        </section>
+
+        <!-- Screen: Host Setup -->
+        <section id="screen-host-setup" class="screen">
+            <div class="glass-card">
+                <h2 class="neon-text cyan">Host Setup</h2>
+
+                <div class="control-group">
+                    <label>Play Mode</label>
+                    <div class="segmented-control">
+                        <button class="host-mode-btn active" data-host-mode="same-room">Same Room</button>
+                        <button class="host-mode-btn" data-host-mode="remote">Remote</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Decades <span id="host-decade-track-count" class="decade-count"></span></label>
+                    <div class="decade-grid">
+                        <button class="host-decade-btn active" data-decade="1950">50s</button>
+                        <button class="host-decade-btn active" data-decade="1960">60s</button>
+                        <button class="host-decade-btn active" data-decade="1970">70s</button>
+                        <button class="host-decade-btn active" data-decade="1980">80s</button>
+                        <button class="host-decade-btn active" data-decade="1990">90s</button>
+                        <button class="host-decade-btn active" data-decade="2000">00s</button>
+                        <button class="host-decade-btn active" data-decade="2010">10s</button>
+                        <button class="host-decade-btn active" data-decade="2020">20s</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Questions: <span id="host-question-count-val">10</span></label>
+                    <input type="range" id="host-question-slider" min="5" max="30" value="10">
+                </div>
+
+                <div class="control-group">
+                    <label>Answer Timer: <span id="host-timer-val">30s</span></label>
+                    <div class="segmented-control">
+                        <button class="timer-btn" data-timer="15">15s</button>
+                        <button class="timer-btn active" data-timer="30">30s</button>
+                        <button class="timer-btn" data-timer="45">45s</button>
+                        <button class="timer-btn" data-timer="60">60s</button>
+                    </div>
+                </div>
+
+                <button id="btn-create-room" class="neon-button">Create Room</button>
+                <button id="btn-host-back" class="neon-button cyan" style="margin-top: 10px;">Back</button>
+            </div>
+        </section>
+
+        <!-- Screen: Join Game -->
+        <section id="screen-join" class="screen">
+            <div class="glass-card center-content">
+                <h2 class="neon-text cyan">Join Game</h2>
+                <input type="text" id="inp-room-code" class="neon-input room-code-input" placeholder="ROOM CODE" maxlength="4" autocomplete="off" style="text-align: center; text-transform: uppercase; font-size: 24px; letter-spacing: 0.3em;">
+                <input type="text" id="inp-player-name" class="neon-input" placeholder="Your Name" autocomplete="off">
+                <button id="btn-join-room" class="neon-button cyan">Join</button>
+                <p id="join-error" class="error-text" style="display:none;"></p>
+                <button id="btn-join-back" class="neon-button" style="margin-top: 10px;">Back</button>
+            </div>
+        </section>
+
+        <!-- Screen: Lobby (Host) -->
+        <section id="screen-lobby" class="screen">
+            <div class="glass-card center-content">
+                <h2 class="neon-text cyan">Lobby</h2>
+                <p class="subtext">Share this code with players</p>
+                <div class="room-code-display" id="lobby-room-code"></div>
+                <div id="lobby-qr" class="qr-container"></div>
+                <p class="subtext" id="lobby-url" style="font-size: 0.7em; word-break: break-all;"></p>
+
+                <div class="control-group">
+                    <label>Players (<span id="lobby-player-count">0</span>)</label>
+                    <ul id="lobby-player-list" class="player-list"></ul>
+                </div>
+
+                <button id="btn-start-online" class="neon-button" disabled>Waiting for players...</button>
+                <button id="btn-lobby-back" class="neon-button cyan" style="margin-top: 10px;">Cancel</button>
             </div>
         </section>
 
@@ -59,13 +139,16 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Difficulty</label>
-                    <div class="difficulty-grid">
-                        <button class="diff-btn" data-tier="1" title="Party">★</button>
-                        <button class="diff-btn active" data-tier="2" title="Easy">🎵</button>
-                        <button class="diff-btn" data-tier="3" title="Medium">⚡</button>
-                        <button class="diff-btn" data-tier="4" title="Hard">🏆</button>
-                        <button class="diff-btn" data-tier="5" title="Nerd">🎧</button>
+                    <label>Decades <span id="decade-track-count" class="decade-count"></span></label>
+                    <div class="decade-grid">
+                        <button class="decade-btn active" data-decade="1950">50s</button>
+                        <button class="decade-btn active" data-decade="1960">60s</button>
+                        <button class="decade-btn active" data-decade="1970">70s</button>
+                        <button class="decade-btn active" data-decade="1980">80s</button>
+                        <button class="decade-btn active" data-decade="1990">90s</button>
+                        <button class="decade-btn active" data-decade="2000">00s</button>
+                        <button class="decade-btn active" data-decade="2010">10s</button>
+                        <button class="decade-btn active" data-decade="2020">20s</button>
                     </div>
                 </div>
 
@@ -102,6 +185,13 @@
                     <button id="btn-skip-track" class="neon-button" style="font-size: 0.8em; margin-top: 10px; border-color: var(--score-partial); color: var(--score-partial);">Skip Track</button>
                 </div>
                 <p id="audio-error" class="error-text" style="display:none;">Audio unavailable for this track. Answer from memory!</p>
+
+                <!-- Multiplayer: answer status (host only) -->
+                <div id="mp-answer-status" style="display:none;">
+                    <p class="answer-status-text"><span id="mp-answered-count">0</span> / <span id="mp-player-total">0</span> players answered</p>
+                    <div id="mp-answer-timer" class="answer-timer" style="display:none;"></div>
+                    <button id="btn-mp-reveal" class="neon-button cyan" style="margin-top: 10px;">Reveal Answers</button>
+                </div>
             </div>
         </section>
 
@@ -137,13 +227,7 @@
                         <h2 id="reveal-title" class="neon-text cyan"></h2>
                         <h3 id="reveal-artist" class="neon-text magenta"></h3>
                         <p id="reveal-year"></p>
-                        <p id="reveal-peak"></p>
                     </div>
-                </div>
-
-                <div class="fun-fact-box">
-                    <span class="label">FUN FACT</span>
-                    <p id="reveal-fact"></p>
                 </div>
 
                 <div id="team-results-container">
@@ -207,9 +291,14 @@
 
     <!-- Scripts (order matters) -->
     <script src="retro-grid.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="firebase-config.js"></script>
     <script src="scoring.js"></script>
     <script src="playlist.js"></script>
     <script src="leaderboard.js"></script>
+    <script src="multiplayer.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

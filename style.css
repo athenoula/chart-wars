@@ -168,51 +168,18 @@ h1, h2, h3 { margin: 0; }
 }
 .mode-btn.active { background: var(--primary); border-color: var(--primary); }
 
-.difficulty-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.diff-btn {
+.decade-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.decade-btn {
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.2);
     color: #fff;
     padding: 10px 0;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 1.2em;
+    font-size: 0.9em;
 }
-.diff-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; }
-
-/* Difficulty Tooltips */
-.diff-btn-wrapper { position: relative; }
-.diff-btn-wrapper .diff-btn { width: 100%; }
-.diff-tooltip {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.95);
-    border: 1px solid var(--secondary);
-    border-radius: 8px;
-    padding: 12px;
-    min-width: 200px;
-    text-align: center;
-    z-index: 100;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-    pointer-events: none;
-}
-.diff-tooltip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--secondary);
-}
-.diff-tooltip strong { display: block; color: var(--secondary); font-size: 1em; text-transform: uppercase; letter-spacing: 0.1em; }
-.diff-tooltip-subtitle { display: block; color: var(--primary); font-size: 0.85em; margin: 4px 0; }
-.diff-tooltip-desc { display: block; color: var(--text-secondary); font-size: 0.75em; line-height: 1.4; }
-.diff-btn-wrapper:hover .diff-tooltip { display: block; }
-.diff-tooltip.visible { display: block; }
+.decade-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; }
+.decade-count { font-size: 0.8em; color: var(--text-muted); font-weight: normal; }
 
 /* Leaderboard */
 .leaderboard-meta { display: block; font-size: 0.7em; color: var(--text-muted); margin-top: 2px; }
@@ -255,14 +222,6 @@ h1, h2, h3 { margin: 0; }
 .track-info { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; }
 .album-art { width: 100px; height: 100px; border-radius: 4px; border: 2px solid var(--secondary); object-fit: cover; }
 .track-details { text-align: left; }
-.fun-fact-box {
-    border: 1px dashed var(--score-partial);
-    padding: 15px;
-    border-radius: 8px;
-    background: rgba(0,0,0,0.3);
-    margin-bottom: 20px;
-    text-align: left;
-}
 .team-result-card {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
@@ -381,3 +340,104 @@ h1, h2, h3 { margin: 0; }
     text-transform: uppercase;
     letter-spacing: 0.1em;
 }
+
+/* ── Multiplayer ──────────────────────────────────────────────────────────── */
+
+/* Room code display */
+.room-code-display {
+    font-family: 'Courier New', monospace;
+    font-size: 48px;
+    font-weight: bold;
+    letter-spacing: 0.3em;
+    color: var(--secondary);
+    text-shadow: 0 0 10px var(--secondary), 0 0 20px var(--secondary);
+    padding: 20px;
+    border: 2px solid var(--secondary);
+    border-radius: 12px;
+    background: rgba(0, 255, 255, 0.05);
+    margin: 10px 0;
+}
+
+/* QR code container */
+.qr-container {
+    margin: 15px 0;
+    display: flex;
+    justify-content: center;
+}
+.qr-container svg {
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px;
+}
+
+/* Player list */
+.player-list {
+    list-style: none;
+    width: 100%;
+}
+.player-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+}
+
+/* Player status dot */
+.player-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.player-status-dot.connected { background: var(--score-full); box-shadow: 0 0 6px var(--score-full); }
+.player-status-dot.disconnected { background: var(--score-wrong); box-shadow: 0 0 6px var(--score-wrong); }
+
+/* Answer status (host play screen) */
+.answer-status-text {
+    font-size: 1.1em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 15px 0 5px;
+}
+
+/* Answer timer */
+.answer-timer {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--secondary);
+    text-shadow: 0 0 8px var(--secondary);
+    margin: 10px 0;
+}
+.answer-timer.timer-urgent {
+    color: var(--score-wrong);
+    text-shadow: 0 0 8px var(--score-wrong);
+    animation: pulse 0.5s infinite;
+}
+
+/* Host mode buttons (same-room / remote) */
+.host-mode-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.host-mode-btn.active { background: var(--primary); border-color: var(--primary); }
+
+/* Timer setting buttons */
+.timer-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.timer-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; }

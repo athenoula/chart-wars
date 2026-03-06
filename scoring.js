@@ -13,6 +13,12 @@ const Scoring = {
         // e.g. "Macarena (Bayside Boys Mix)" → "Macarena"
         s = s.replace(/\s*[\(\[][^\)\]]*[\)\]]\s*/g, " ");
 
+        // Strip dash-separated release/version tags (with optional year)
+        // e.g. "Rock the Casbah - Remastered" → "Rock the Casbah"
+        // e.g. "Dreams - 2004 Remaster" → "Dreams"
+        // e.g. "Rock With You - Single Version" → "Rock With You"
+        s = s.replace(/\s*-\s*(\d{4}\s*)?(remaster(ed)?|remix(ed)?|re-?mix|radio\s*edit|single\s*version|deluxe|bonus\s*track|live|acoustic|demo|mono|stereo|edit|version|extended(\s*mix)?|original(\s*mix)?|(\w+\s+)?mix|b-?side)(\s*\d{4})?\s*$/i, "");
+
         // Strip diacritics/accents (Beyoncé → beyonce, Motörhead → motorhead)
         s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 

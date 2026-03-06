@@ -5,8 +5,6 @@ const Leaderboard = {
     STORAGE_KEY: "chartWarsLeaderboard",
     MAX_ENTRIES: 10,
 
-    DIFFICULTY_NAMES: { 1: "★ Party", 2: "🎵 Easy", 3: "⚡ Medium", 4: "🏆 Hard", 5: "🎧 Nerd" },
-
     // ── Load from localStorage ────────────────────────────────────────────────
     getEntries() {
         try {
@@ -49,13 +47,12 @@ const Leaderboard = {
             const dateStr = new Date(entry.date).toLocaleDateString("en-GB", {
                 day: "numeric", month: "short", year: "numeric"
             });
-            const diffName = Leaderboard.DIFFICULTY_NAMES[entry.difficulty] || "Unknown";
             html += `
                 <li ${i === 0 ? 'class="leader"' : ''}>
                     <span>${i + 1}. ${Leaderboard._escapeHtml(entry.name)}</span>
                     <span>
                         ${entry.score}/${entry.maxPossible} (${entry.percentage}%)
-                        <span class="leaderboard-meta">${diffName} · ${dateStr}</span>
+                        <span class="leaderboard-meta">${dateStr}</span>
                     </span>
                 </li>
             `;

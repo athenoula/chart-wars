@@ -1,15 +1,9 @@
 // ─── Chart Wars — Game Logic & State Management ─────────────────────────────
 // Controls screen flow, audio playback, answer collection, and scoring integration.
 
-const DIFFICULTY_INFO = {
-    1: { name: "Party", subtitle: "#1 Hits Only", desc: "Only the biggest hits in the UK. The songs everyone knows." },
-    2: { name: "Easy", subtitle: "Top 10 Hits", desc: "All songs that reached the UK Top 10. You've definitely heard these." },
-    3: { name: "Medium", subtitle: "Top 20 Hits", desc: "Songs that reached the Top 20. Popular but not always household names." },
-    4: { name: "Hard", subtitle: "Top 40 Hits", desc: "The full Top 40. Includes some deep cuts from the charts." },
-    5: { name: "Nerd", subtitle: "Positions 21\u201340 Only", desc: "Only songs that peaked between #21 and #40. No easy ones here." }
-};
-
 const Game = {
+    HISTORY_KEY: "chartWarsPlayedTracks",
+
     state: {
         screen: "title",
         teams: [],
@@ -18,7 +12,6 @@ const Game = {
         currentTrack: null,
         currentQuestion: 0,
         totalQuestions: 10,
-        difficulty: 2,
         currentTeamIndex: 0,
         roundAnswers: {},   // { teamName: {artist, title, year} }
         scores: {},         // { teamName: totalScore }
@@ -28,55 +21,24 @@ const Game = {
         skippedCount: 0,
         isPlaying: false,
         replayUsed: false,
-        clipInterval: null  // Track the progress interval so we can clear it
+        clipInterval: null, // Track the progress interval so we can clear it
+        decades: new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]),
+        multiplayer: {
+            active: false,
+            roomCode: null,
+            hostId: null,
+            mode: "same-room",  // "same-room" or "remote"
+            timerSeconds: 30,
+            players: {},        // { playerId: {name, score, connected} }
+            answeredCount: 0,
+            timerInterval: null
+        }
     },
 
     // ── Initialise ──────────────────────────────────────────────────────────────
     init() {
         Game.bindEvents();
         Game.loadTracks();
-        Game.initDifficultyTooltips();
-    },
-
-    // ── Difficulty Tooltips ───────────────────────────────────────────────────
-    initDifficultyTooltips() {
-        document.querySelectorAll(".diff-btn").forEach(btn => {
-            const tier = parseInt(btn.dataset.tier);
-            const info = DIFFICULTY_INFO[tier];
-            if (!info) return;
-
-            const wrapper = document.createElement("div");
-            wrapper.className = "diff-btn-wrapper";
-            btn.parentNode.insertBefore(wrapper, btn);
-            wrapper.appendChild(btn);
-
-            const tooltip = document.createElement("div");
-            tooltip.className = "diff-tooltip";
-            tooltip.innerHTML = `
-                <strong>${info.name}</strong>
-                <span class="diff-tooltip-subtitle">${info.subtitle}</span>
-                <span class="diff-tooltip-desc">${info.desc}</span>
-            `;
-            wrapper.appendChild(tooltip);
-            btn.removeAttribute("title");
-
-            // Mobile tap support
-            btn.addEventListener("touchstart", (e) => {
-                e.preventDefault();
-                document.querySelectorAll(".diff-tooltip").forEach(t => t.classList.remove("visible"));
-                tooltip.classList.toggle("visible");
-                // Also trigger the selection
-                document.querySelectorAll(".diff-btn").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                Game.state.difficulty = tier;
-            });
-        });
-
-        document.addEventListener("touchstart", (e) => {
-            if (!e.target.closest(".diff-btn-wrapper")) {
-                document.querySelectorAll(".diff-tooltip").forEach(t => t.classList.remove("visible"));
-            }
-        });
     },
 
     // ── Event Binding ───────────────────────────────────────────────────────────
@@ -105,11 +67,16 @@ const Game = {
             });
         });
 
-        document.querySelectorAll(".diff-btn").forEach(btn => {
+        document.querySelectorAll(".decade-btn").forEach(btn => {
             btn.addEventListener("click", (e) => {
-                document.querySelectorAll(".diff-btn").forEach(b => b.classList.remove("active"));
-                e.target.classList.add("active");
-                Game.state.difficulty = parseInt(e.target.dataset.tier);
+                e.target.classList.toggle("active");
+                const decade = e.target.dataset.decade;
+                if (Game.state.decades.has(decade)) {
+                    Game.state.decades.delete(decade);
+                } else {
+                    Game.state.decades.add(decade);
+                }
+                Game.updateDecadeCount();
             });
         });
 
@@ -162,6 +129,443 @@ const Game = {
             Game.resetGame();
             Game.showScreen("title");
         });
+
+        // ── Multiplayer Buttons ──────────────────────────────────────────────
+        Game._bindMultiplayerEvents();
+    },
+
+    _bindMultiplayerEvents() {
+        // Hide multiplayer buttons if Firebase unavailable
+        if (!Multiplayer.isAvailable()) {
+            const hostBtn = document.getElementById("btn-host-game");
+            const joinBtn = document.getElementById("btn-join-game");
+            if (hostBtn) hostBtn.style.display = "none";
+            if (joinBtn) joinBtn.style.display = "none";
+            return;
+        }
+
+        Multiplayer.init();
+
+        // Host Game button
+        document.getElementById("btn-host-game").addEventListener("click", () => {
+            Game._initHostDecades();
+            Game.showScreen("host-setup");
+        });
+
+        // Join Game button (shows join screen on same page)
+        document.getElementById("btn-join-game").addEventListener("click", () => {
+            Game.showScreen("join");
+        });
+
+        // Host setup: back button
+        document.getElementById("btn-host-back").addEventListener("click", () => {
+            Game.showScreen("title");
+        });
+
+        // Host setup: mode toggle (same-room / remote)
+        document.querySelectorAll(".host-mode-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                document.querySelectorAll(".host-mode-btn").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+                Game.state.multiplayer.mode = e.target.dataset.hostMode;
+            });
+        });
+
+        // Host setup: decade toggles
+        document.querySelectorAll(".host-decade-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.target.classList.toggle("active");
+                const decade = e.target.dataset.decade;
+                if (Game.state.decades.has(decade)) {
+                    Game.state.decades.delete(decade);
+                } else {
+                    Game.state.decades.add(decade);
+                }
+                Game._updateHostDecadeCount();
+            });
+        });
+
+        // Host setup: question slider
+        document.getElementById("host-question-slider").addEventListener("input", (e) => {
+            document.getElementById("host-question-count-val").textContent = e.target.value;
+            Game.state.totalQuestions = parseInt(e.target.value);
+        });
+
+        // Host setup: timer buttons
+        document.querySelectorAll(".timer-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                document.querySelectorAll(".timer-btn").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+                Game.state.multiplayer.timerSeconds = parseInt(e.target.dataset.timer);
+                document.getElementById("host-timer-val").textContent = e.target.dataset.timer + "s";
+            });
+        });
+
+        // Create Room button
+        document.getElementById("btn-create-room").addEventListener("click", Game._createRoom);
+
+        // Lobby: start game
+        document.getElementById("btn-start-online").addEventListener("click", Game._startOnlineGame);
+
+        // Lobby: cancel
+        document.getElementById("btn-lobby-back").addEventListener("click", () => {
+            Multiplayer.destroy();
+            Game.state.multiplayer.active = false;
+            Game.showScreen("title");
+        });
+
+        // Join screen: join button
+        document.getElementById("btn-join-room").addEventListener("click", Game._joinRoom);
+
+        // Join screen: back
+        document.getElementById("btn-join-back").addEventListener("click", () => {
+            Game.showScreen("title");
+        });
+
+        // Multiplayer reveal button (host)
+        document.getElementById("btn-mp-reveal").addEventListener("click", () => {
+            Game._mpCollectAndReveal();
+        });
+    },
+
+    // ── Host Decade Count ────────────────────────────────────────────────────
+    _initHostDecades() {
+        Game.state.decades = new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]);
+        document.querySelectorAll(".host-decade-btn").forEach(b => b.classList.add("active"));
+        Game._updateHostDecadeCount();
+    },
+
+    _updateHostDecadeCount() {
+        const count = Game.state.tracks.filter(t => {
+            const decade = String(Math.floor(t.year / 10) * 10);
+            return Game.state.decades.has(decade);
+        }).length;
+        const el = document.getElementById("host-decade-track-count");
+        if (el) el.textContent = `(${count} tracks)`;
+    },
+
+    // ── Create Room ──────────────────────────────────────────────────────────
+    async _createRoom() {
+        if (Game.state.decades.size === 0) {
+            alert("Select at least one decade!");
+            return;
+        }
+
+        const settings = {
+            totalQuestions: Game.state.totalQuestions,
+            decades: [...Game.state.decades],
+            timerSeconds: Game.state.multiplayer.timerSeconds,
+            mode: Game.state.multiplayer.mode
+        };
+
+        const result = await Multiplayer.createRoom(settings);
+        if (!result) {
+            alert("Failed to create room. Check your Firebase configuration.");
+            return;
+        }
+
+        Game.state.multiplayer.active = true;
+        Game.state.multiplayer.roomCode = result.roomCode;
+        Game.state.multiplayer.hostId = result.hostId;
+
+        // Show lobby
+        Game._showLobby(result.roomCode);
+    },
+
+    // ── Show Lobby ───────────────────────────────────────────────────────────
+    _showLobby(roomCode) {
+        document.getElementById("lobby-room-code").textContent = roomCode;
+
+        // Generate QR code
+        const qrContainer = document.getElementById("lobby-qr");
+        qrContainer.innerHTML = "";
+        const joinUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, "")}player.html?room=${roomCode}`;
+        document.getElementById("lobby-url").textContent = joinUrl;
+
+        if (typeof qrcode !== "undefined") {
+            const qr = qrcode(0, "M");
+            qr.addData(joinUrl);
+            qr.make();
+            qrContainer.innerHTML = qr.createSvgTag(5);
+        }
+
+        // Listen for players
+        Multiplayer.listenToRoom(roomCode, {
+            onPlayers: (players) => {
+                Game.state.multiplayer.players = players;
+                Game._renderLobbyPlayers(players);
+            }
+        });
+
+        Game.showScreen("lobby");
+    },
+
+    _renderLobbyPlayers(players) {
+        const list = document.getElementById("lobby-player-list");
+        const countEl = document.getElementById("lobby-player-count");
+        const startBtn = document.getElementById("btn-start-online");
+
+        const entries = Object.entries(players);
+        countEl.textContent = entries.length;
+
+        list.innerHTML = "";
+        entries.forEach(([pid, p]) => {
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <span class="player-status-dot ${p.connected ? 'connected' : 'disconnected'}"></span>
+                ${Game._escapeHtml(p.name)}
+            `;
+            list.appendChild(li);
+        });
+
+        if (entries.length > 0) {
+            startBtn.disabled = false;
+            startBtn.textContent = "Start Game";
+        } else {
+            startBtn.disabled = true;
+            startBtn.textContent = "Waiting for players...";
+        }
+    },
+
+    // ── Start Online Game ────────────────────────────────────────────────────
+    async _startOnlineGame() {
+        const mp = Game.state.multiplayer;
+        const players = mp.players;
+
+        // Set up teams from players
+        Game.state.teams = Object.entries(players).map(([pid, p]) => p.name);
+        Game.state.scores = {};
+        Object.entries(players).forEach(([pid, p]) => {
+            Game.state.scores[p.name] = 0;
+        });
+        Game.state.usedTracks.clear();
+        Game.state.currentQuestion = 0;
+        Game.state.roundScores = [];
+        Game.state.roundAnswers = {};
+        Game.state.skippedCount = 0;
+        Game.state.mode = "teams"; // multiplayer always uses teams mode
+
+        await Multiplayer.updateStatus(mp.roomCode, "playing");
+
+        Game.showScreen("play");
+        Game._mpPreparePlayScreen();
+    },
+
+    // ── Multiplayer: Prepare Play Screen ─────────────────────────────────────
+    async _mpPreparePlayScreen() {
+        Game.state.roundAnswers = {};
+        Game.state.multiplayer.answeredCount = 0;
+
+        let available = Game.filterTracks();
+        if (available.length === 0) {
+            Game._clearHistory();
+            available = Game.filterTracks();
+        }
+        if (available.length === 0) {
+            await Multiplayer.updateStatus(Game.state.multiplayer.roomCode, "final");
+            Game.state.totalQuestions = Game.state.currentQuestion;
+            Game.showScreen("final");
+            Game.showFinalResults();
+            return;
+        }
+
+        Game.state.currentTrack = available[Math.floor(Math.random() * available.length)];
+        const trackKey = Game.state.currentTrack.title + "|" + Game.state.currentTrack.artist;
+        Game.state.usedTracks.add(trackKey);
+        Game._addToHistory(trackKey);
+        Game.state.currentQuestion++;
+        Game.state.replayUsed = false;
+
+        document.getElementById("current-q-num").textContent = Game.state.currentQuestion;
+        document.getElementById("total-q-num").textContent = Game.state.totalQuestions;
+
+        // Reset UI
+        document.getElementById("btn-play-clip").style.display = "flex";
+        document.getElementById("play-controls").style.display = "none";
+        document.getElementById("audio-error").style.display = "none";
+        document.getElementById("audio-progress").innerHTML = "";
+        document.getElementById("btn-play-clip").classList.remove("playing");
+        document.getElementById("volume-indicator").textContent = "🔇";
+        document.getElementById("mp-answer-status").style.display = "none";
+
+        // Hide pass-and-play controls, show multiplayer status
+        document.getElementById("btn-ready-answer").style.display = "none";
+        document.getElementById("btn-replay-clip").style.display = "none";
+        document.getElementById("btn-skip-track").style.display = "none";
+
+        Game.state.audio.pause();
+        Game.state.audio.currentTime = 0;
+        if (Game.state.clipInterval) {
+            clearInterval(Game.state.clipInterval);
+            Game.state.clipInterval = null;
+        }
+
+        // Write track to Firebase
+        await Multiplayer.writeCurrentTrack(
+            Game.state.multiplayer.roomCode,
+            Game.state.currentTrack,
+            Game.state.multiplayer.mode
+        );
+        await Multiplayer.setCurrentQuestion(Game.state.multiplayer.roomCode, Game.state.currentQuestion);
+        await Multiplayer.updateStatus(Game.state.multiplayer.roomCode, "playing");
+    },
+
+    // ── Multiplayer: After clip plays, transition to answering ────────────────
+    _mpStartAnswering() {
+        const mp = Game.state.multiplayer;
+        const playerCount = Object.keys(mp.players).length;
+
+        // Show answer status
+        document.getElementById("mp-answer-status").style.display = "block";
+        document.getElementById("mp-answered-count").textContent = "0";
+        document.getElementById("mp-player-total").textContent = playerCount;
+
+        // Set timer
+        const timerEnd = Date.now() + (mp.timerSeconds * 1000);
+        Multiplayer.setTimerEnd(mp.roomCode, timerEnd);
+        Multiplayer.updateStatus(mp.roomCode, "answering");
+
+        // Show timer countdown
+        const timerEl = document.getElementById("mp-answer-timer");
+        timerEl.style.display = "block";
+        if (mp.timerInterval) clearInterval(mp.timerInterval);
+        mp.timerInterval = setInterval(() => {
+            const remaining = Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000));
+            timerEl.textContent = `${remaining}s remaining`;
+            if (remaining <= 0) {
+                clearInterval(mp.timerInterval);
+                mp.timerInterval = null;
+                timerEl.textContent = "Time's up!";
+                Game._mpCollectAndReveal();
+            }
+        }, 250);
+
+        // Listen for answers
+        Multiplayer.listenToAnswers(mp.roomCode, Game.state.currentQuestion, (answers) => {
+            const locked = Object.values(answers).filter(a => a.locked).length;
+            Game.state.multiplayer.answeredCount = locked;
+            document.getElementById("mp-answered-count").textContent = locked;
+
+            // Auto-reveal when all answered
+            if (locked >= playerCount) {
+                if (mp.timerInterval) {
+                    clearInterval(mp.timerInterval);
+                    mp.timerInterval = null;
+                }
+                timerEl.textContent = "All answered!";
+            }
+        });
+    },
+
+    // ── Multiplayer: Collect answers and reveal ──────────────────────────────
+    async _mpCollectAndReveal() {
+        const mp = Game.state.multiplayer;
+        if (mp.timerInterval) {
+            clearInterval(mp.timerInterval);
+            mp.timerInterval = null;
+        }
+
+        // Read answers from Firebase
+        const answers = await Multiplayer.getAnswers(mp.roomCode, Game.state.currentQuestion);
+
+        // Build round answers and calculate scores
+        const track = Game.state.currentTrack;
+        const resultsContainer = document.getElementById("team-results-container");
+        resultsContainer.innerHTML = "";
+        const roundStats = { question: Game.state.currentQuestion, teams: [] };
+        const firebaseResults = {
+            correctAnswer: {
+                title: track.title,
+                artist: track.artist,
+                year: track.year,
+                albumArt: track.albumArt
+            }
+        };
+        const standings = {};
+
+        Object.entries(mp.players).forEach(([pid, player]) => {
+            const guesses = answers[pid] || { artist: "", title: "", year: "" };
+            const score = Scoring.calculateRoundScore(track, guesses);
+
+            // Update local scores
+            if (!Game.state.scores[player.name]) Game.state.scores[player.name] = 0;
+            Game.state.scores[player.name] += score.total;
+
+            roundStats.teams.push({ name: player.name, score: score.total });
+
+            // Build result card
+            const card = document.createElement("div");
+            card.className = "team-result-card";
+            card.innerHTML = `
+                <h4 class="cyan">${Game._escapeHtml(player.name)}</h4>
+                ${Game._scoreRow("Artist", guesses.artist, score.artist)}
+                ${Game._scoreRow("Title", guesses.title, score.title)}
+                ${Game._scoreRow("Year", guesses.year, score.year)}
+                <div class="score-row score-total-row">
+                    <span>Round Total</span>
+                    <span class="round-total ${score.total >= 6 ? 'text-green' : score.total > 0 ? 'text-amber' : 'text-red'}">${score.total} pts</span>
+                </div>
+            `;
+            resultsContainer.appendChild(card);
+
+            // Firebase results for players to read
+            firebaseResults[pid] = {
+                artist: score.artist,
+                title: score.title,
+                year: score.year,
+                total: score.total
+            };
+
+            standings[pid] = {
+                name: player.name,
+                score: Game.state.scores[player.name]
+            };
+        });
+
+        Game.state.roundScores.push(roundStats);
+
+        // Track Info
+        document.getElementById("reveal-art").src = track.albumArt;
+        document.getElementById("reveal-title").textContent = track.title;
+        document.getElementById("reveal-artist").textContent = track.artist;
+        document.getElementById("reveal-year").textContent = track.year;
+
+        // Update teams array for score rendering
+        Game.state.teams = Object.values(mp.players).map(p => p.name);
+
+        // Running Score
+        Game._renderScoreList("running-score-list");
+
+        // Publish to Firebase
+        await Multiplayer.publishResults(mp.roomCode, Game.state.currentQuestion, firebaseResults);
+        await Multiplayer.writeStandings(mp.roomCode, standings);
+        await Multiplayer.updateStatus(mp.roomCode, "reveal");
+
+        Game.showScreen("reveal");
+    },
+
+    // ── Join Room (from host index.html) ─────────────────────────────────────
+    async _joinRoom() {
+        const code = document.getElementById("inp-room-code").value.toUpperCase().trim();
+        const name = document.getElementById("inp-player-name").value.trim();
+        const errorEl = document.getElementById("join-error");
+
+        if (!code || code.length !== 4) {
+            errorEl.textContent = "Enter a 4-character room code.";
+            errorEl.style.display = "block";
+            return;
+        }
+        if (!name) {
+            errorEl.textContent = "Enter your name.";
+            errorEl.style.display = "block";
+            return;
+        }
+
+        errorEl.style.display = "none";
+
+        // Redirect to player.html
+        const playerUrl = `player.html?room=${code}&name=${encodeURIComponent(name)}`;
+        window.location.href = playerUrl;
     },
 
     // ── Load Tracks ─────────────────────────────────────────────────────────────
@@ -172,10 +576,21 @@ const Game = {
             Game.state.tracks = allTracks.filter(t => t.previewUrl);
             const skipped = allTracks.length - Game.state.tracks.length;
             console.log(`📀 Loaded ${Game.state.tracks.length} tracks${skipped ? ` (${skipped} skipped — no preview)` : ""}`);
+            Game.updateDecadeCount();
         } catch (e) {
             console.error("Failed to load tracks", e);
             alert("Error loading tracks.json. Make sure you're running a local server (e.g. npx serve).");
         }
+    },
+
+    // ── Decade Count Display ──────────────────────────────────────────────────
+    updateDecadeCount() {
+        const count = Game.state.tracks.filter(t => {
+            const decade = String(Math.floor(t.year / 10) * 10);
+            return Game.state.decades.has(decade);
+        }).length;
+        const el = document.getElementById("decade-track-count");
+        if (el) el.textContent = `(${count} tracks)`;
     },
 
     // ── Screen Management ───────────────────────────────────────────────────────
@@ -232,6 +647,11 @@ const Game = {
             }
         }
 
+        if (Game.state.decades.size === 0) {
+            alert("Select at least one decade!");
+            return;
+        }
+
         // Reset all game state
         Game.state.scores = {};
         Game.state.teams.forEach(t => Game.state.scores[t] = 0);
@@ -247,18 +667,44 @@ const Game = {
 
     // ── Reset Game (for Play Again) ─────────────────────────────────────────────
     resetGame() {
+        // Clean up multiplayer
+        if (Game.state.multiplayer.active) {
+            Multiplayer.destroy();
+        }
+        if (Game.state.multiplayer.timerInterval) {
+            clearInterval(Game.state.multiplayer.timerInterval);
+        }
+        Game.state.multiplayer = {
+            active: false, roomCode: null, hostId: null,
+            mode: "same-room", timerSeconds: 30,
+            players: {}, answeredCount: 0, timerInterval: null
+        };
+
+        // Restore pass-and-play controls visibility
+        const playControls = document.getElementById("play-controls");
+        if (playControls) playControls.style.display = "";
+        const readyBtn = document.getElementById("btn-ready-answer");
+        const replayBtn = document.getElementById("btn-replay-clip");
+        const skipBtn = document.getElementById("btn-skip-track");
+        if (readyBtn) readyBtn.style.display = "";
+        if (replayBtn) replayBtn.style.display = "";
+        if (skipBtn) skipBtn.style.display = "";
+        const mpStatus = document.getElementById("mp-answer-status");
+        if (mpStatus) mpStatus.style.display = "none";
+
         Game.state.teams = [];
         Game.state.scores = {};
         Game.state.usedTracks.clear();
         Game.state.currentQuestion = 0;
         Game.state.totalQuestions = 10;
-        Game.state.difficulty = 2;
         Game.state.currentTeamIndex = 0;
         Game.state.roundAnswers = {};
         Game.state.roundScores = [];
         Game.state.replayUsed = false;
         Game.state.mode = "teams";
         Game.state.skippedCount = 0;
+        Game.state.decades = new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]);
+        document.querySelectorAll(".decade-btn").forEach(b => b.classList.add("active"));
         Game.state.audio.pause();
         Game.state.audio.currentTime = 0;
         if (Game.state.clipInterval) {
@@ -267,17 +713,33 @@ const Game = {
         }
     },
 
-    // ── Track Filtering by Difficulty ────────────────────────────────────────────
+    // ── Track History (cross-session dedup via localStorage) ────────────────────
+    _loadHistory() {
+        try {
+            const raw = localStorage.getItem(Game.HISTORY_KEY);
+            return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+    },
+
+    _addToHistory(key) {
+        const history = Game._loadHistory();
+        history.add(key);
+        localStorage.setItem(Game.HISTORY_KEY, JSON.stringify([...history]));
+    },
+
+    _clearHistory() {
+        localStorage.removeItem(Game.HISTORY_KEY);
+    },
+
+    // ── Track Filtering ─────────────────────────────────────────────────────────
     filterTracks() {
-        const tier = Game.state.difficulty;
+        const history = Game._loadHistory();
         return Game.state.tracks.filter(t => {
-            if (Game.state.usedTracks.has(t.title + "|" + t.artist)) return false;
-            if (tier === 1) return t.peakPosition === 1;
-            if (tier === 2) return t.peakPosition <= 10;
-            if (tier === 3) return t.peakPosition <= 20;
-            if (tier === 4) return t.peakPosition <= 40;
-            if (tier === 5) return t.peakPosition > 20 && t.peakPosition <= 40;
-            return false;
+            const key = t.title + "|" + t.artist;
+            if (Game.state.usedTracks.has(key)) return false;
+            if (history.has(key)) return false;
+            const decade = String(Math.floor(t.year / 10) * 10);
+            return Game.state.decades.has(decade);
         });
     },
 
@@ -286,9 +748,14 @@ const Game = {
         // Clear stale round answers for this new question
         Game.state.roundAnswers = {};
 
-        const available = Game.filterTracks();
+        let available = Game.filterTracks();
         if (available.length === 0) {
-            alert("No more tracks available for this difficulty! Ending game early.");
+            // All tracks in selected decades have been played — reset history and retry
+            Game._clearHistory();
+            available = Game.filterTracks();
+        }
+        if (available.length === 0) {
+            alert("No more tracks available! Ending game early.");
             Game.state.totalQuestions = Game.state.currentQuestion;
             Game.showScreen("final");
             Game.showFinalResults();
@@ -296,7 +763,9 @@ const Game = {
         }
 
         Game.state.currentTrack = available[Math.floor(Math.random() * available.length)];
-        Game.state.usedTracks.add(Game.state.currentTrack.title + "|" + Game.state.currentTrack.artist);
+        const trackKey = Game.state.currentTrack.title + "|" + Game.state.currentTrack.artist;
+        Game.state.usedTracks.add(trackKey);
+        Game._addToHistory(trackKey);
         Game.state.currentQuestion++;
         Game.state.replayUsed = false;
 
@@ -359,7 +828,9 @@ const Game = {
                 const available = Game.filterTracks();
                 if (available.length > 0) {
                     Game.state.currentTrack = available[Math.floor(Math.random() * available.length)];
-                    Game.state.usedTracks.add(Game.state.currentTrack.title + "|" + Game.state.currentTrack.artist);
+                    const retryKey = Game.state.currentTrack.title + "|" + Game.state.currentTrack.artist;
+                    Game.state.usedTracks.add(retryKey);
+                    Game._addToHistory(retryKey);
                     Game.playClip();
                     return;
                 }
@@ -393,7 +864,13 @@ const Game = {
                 Game.state.audio.currentTime = 0;
                 btn.classList.remove("playing");
                 volIcon.textContent = "🔇";
-                controls.style.display = "block";
+
+                // In multiplayer: auto-transition to answering phase
+                if (Game.state.multiplayer.active) {
+                    Game._mpStartAnswering();
+                } else {
+                    controls.style.display = "block";
+                }
             }
         }, 100);
     },
@@ -521,8 +998,6 @@ const Game = {
         document.getElementById("reveal-title").textContent = track.title;
         document.getElementById("reveal-artist").textContent = track.artist;
         document.getElementById("reveal-year").textContent = track.year;
-        document.getElementById("reveal-peak").textContent = `Peak: #${track.peakPosition}`;
-        document.getElementById("reveal-fact").textContent = track.funFact || "";
 
         // Running Score
         Game._renderScoreList("running-score-list");
@@ -565,6 +1040,20 @@ const Game = {
 
     // ── Next Question (Scoreboard) ──────────────────────────────────────────────
     nextQuestion() {
+        // Multiplayer: go straight to next question or final
+        if (Game.state.multiplayer.active) {
+            if (Game.state.currentQuestion >= Game.state.totalQuestions) {
+                Multiplayer.updateStatus(Game.state.multiplayer.roomCode, "final");
+                Multiplayer.setExpiresAt(Game.state.multiplayer.roomCode);
+                Game.showScreen("final");
+                Game.showFinalResults();
+            } else {
+                Game.showScreen("play");
+                Game._mpPreparePlayScreen();
+            }
+            return;
+        }
+
         if (Game.state.mode === "solo") {
             // Solo: skip intermediate scoreboard
             if (Game.state.currentQuestion >= Game.state.totalQuestions) {
@@ -613,7 +1102,6 @@ const Game = {
                 name: playerName,
                 score: score,
                 maxPossible: maxPossible,
-                difficulty: Game.state.difficulty,
                 date: new Date().toISOString(),
                 percentage: pct
             });
