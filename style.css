@@ -441,3 +441,88 @@ h1, h2, h3 { margin: 0; }
     font-size: 0.9em;
 }
 .timer-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; }
+
+/* ── Survival Mode ──────────────────────────────────────────────────────── */
+
+.survival-lives {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 8px 0;
+}
+
+.life-heart {
+    font-size: 28px;
+    color: var(--score-wrong);
+    text-shadow: 0 0 8px var(--score-wrong);
+    transition: all 0.5s ease;
+}
+
+.life-heart.lost {
+    color: var(--text-muted);
+    text-shadow: none;
+    opacity: 0.3;
+    transform: scale(0.8);
+}
+
+@keyframes lifeLost {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.5); color: #fff; }
+    50% { transform: scale(0.5); }
+    100% { transform: scale(0.8); opacity: 0.3; }
+}
+
+.life-heart.losing {
+    animation: lifeLost 0.8s ease forwards;
+}
+
+.survival-result {
+    text-align: center;
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.survival-result.survived {
+    border: 1px solid var(--score-full);
+    background: rgba(0, 255, 136, 0.08);
+}
+.survival-result.survived p { color: var(--score-full); }
+
+.survival-result.life-lost {
+    border: 1px solid var(--score-wrong);
+    background: rgba(255, 68, 102, 0.08);
+}
+.survival-result.life-lost p { color: var(--score-wrong); }
+
+.survival-result.game-over {
+    border: 1px solid var(--score-wrong);
+    background: rgba(255, 68, 102, 0.15);
+}
+.survival-result.game-over p { color: var(--score-wrong); text-shadow: 0 0 10px var(--score-wrong); }
+
+.survival-result p {
+    font-size: 1.1em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Leaderboard tabs */
+.leaderboard-tabs { margin-bottom: 12px; }
+
+.leaderboard-tab-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.leaderboard-tab-btn.active {
+    background: var(--secondary);
+    border-color: var(--secondary);
+    color: #000;
+}

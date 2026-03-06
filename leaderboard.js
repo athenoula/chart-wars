@@ -1,14 +1,16 @@
 // ─── Chart Wars — Leaderboard Module ──────────────────────────────────────────
-// Persists solo mode high scores in localStorage.
+// Persists solo and survival mode high scores in localStorage.
 
 const Leaderboard = {
     STORAGE_KEY: "chartWarsLeaderboard",
+    SURVIVAL_KEY: "chartWarsSurvivalLeaderboard",
     MAX_ENTRIES: 10,
 
     // ── Load from localStorage ────────────────────────────────────────────────
-    getEntries() {
+    getEntries(storageKey) {
+        const key = storageKey || Leaderboard.STORAGE_KEY;
         try {
-            const raw = localStorage.getItem(Leaderboard.STORAGE_KEY);
+            const raw = localStorage.getItem(key);
             return raw ? JSON.parse(raw) : [];
         } catch (e) {
             console.error("Failed to load leaderboard", e);
@@ -17,28 +19,37 @@ const Leaderboard = {
     },
 
     // ── Save a new entry ──────────────────────────────────────────────────────
-    saveEntry(entry) {
-        const entries = Leaderboard.getEntries();
+    saveEntry(entry, storageKey) {
+        const key = storageKey || Leaderboard.STORAGE_KEY;
+        const entries = Leaderboard.getEntries(key);
         entries.push(entry);
 
-        // Sort by percentage descending, then by raw score descending for ties
-        entries.sort((a, b) => {
-            if (b.percentage !== a.percentage) return b.percentage - a.percentage;
-            return b.score - a.score;
-        });
+        if (key === Leaderboard.SURVIVAL_KEY) {
+            // Survival: sort by score descending
+            entries.sort((a, b) => b.score - a.score);
+        } else {
+            // Solo: sort by percentage descending, then by raw score descending
+            entries.sort((a, b) => {
+                if (b.percentage !== a.percentage) return b.percentage - a.percentage;
+                return b.score - a.score;
+            });
+        }
 
         const trimmed = entries.slice(0, Leaderboard.MAX_ENTRIES);
-        localStorage.setItem(Leaderboard.STORAGE_KEY, JSON.stringify(trimmed));
+        localStorage.setItem(key, JSON.stringify(trimmed));
         return trimmed;
     },
 
     // ── Render leaderboard into a container element ───────────────────────────
-    render(containerId) {
+    render(containerId, storageKey) {
+        const key = storageKey || Leaderboard.STORAGE_KEY;
         const container = document.getElementById(containerId);
-        const entries = Leaderboard.getEntries();
+        const entries = Leaderboard.getEntries(key);
+        const isSurvival = (key === Leaderboard.SURVIVAL_KEY);
 
         if (entries.length === 0) {
-            container.innerHTML = '<p class="subtext">No scores yet. Play a solo game to get on the board!</p>';
+            const modeText = isSurvival ? "survival" : "solo";
+            container.innerHTML = `<p class="subtext">No scores yet. Play a ${modeText} game to get on the board!</p>`;
             return;
         }
 
@@ -47,11 +58,14 @@ const Leaderboard = {
             const dateStr = new Date(entry.date).toLocaleDateString("en-GB", {
                 day: "numeric", month: "short", year: "numeric"
             });
+            const scoreDisplay = isSurvival
+                ? `${entry.score} pts (${entry.rounds} rounds)`
+                : `${entry.score}/${entry.maxPossible} (${entry.percentage}%)`;
             html += `
                 <li ${i === 0 ? 'class="leader"' : ''}>
                     <span>${i + 1}. ${Leaderboard._escapeHtml(entry.name)}</span>
                     <span>
-                        ${entry.score}/${entry.maxPossible} (${entry.percentage}%)
+                        ${scoreDisplay}
                         <span class="leaderboard-meta">${dateStr}</span>
                     </span>
                 </li>
@@ -62,8 +76,9 @@ const Leaderboard = {
     },
 
     // ── Clear leaderboard ─────────────────────────────────────────────────────
-    clear() {
-        localStorage.removeItem(Leaderboard.STORAGE_KEY);
+    clear(storageKey) {
+        const key = storageKey || Leaderboard.STORAGE_KEY;
+        localStorage.removeItem(key);
     },
 
     _escapeHtml(str) {

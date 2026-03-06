@@ -30,7 +30,10 @@
         <section id="screen-leaderboard" class="screen">
             <div class="glass-card center-content">
                 <h2 class="neon-text cyan">Leaderboard</h2>
-                <p class="subtext">Top 10 Solo Scores</p>
+                <div class="segmented-control leaderboard-tabs">
+                    <button class="leaderboard-tab-btn active" data-lb="solo">Solo</button>
+                    <button class="leaderboard-tab-btn" data-lb="survival">Survival</button>
+                </div>
                 <div id="leaderboard-content"></div>
                 <button id="btn-leaderboard-back" class="neon-button">Back</button>
             </div>
@@ -123,7 +126,8 @@
                     <label>Mode</label>
                     <div class="segmented-control">
                         <button class="mode-btn active" data-mode="teams">Teams</button>
-                        <button class="mode-btn" data-mode="solo">Solo Players</button>
+                        <button class="mode-btn" data-mode="solo">Solo</button>
+                        <button class="mode-btn" data-mode="survival">Survival</button>
                     </div>
                 </div>
 
@@ -152,7 +156,7 @@
                     </div>
                 </div>
 
-                <div class="control-group">
+                <div class="control-group" id="question-count-group">
                     <label>Questions: <span id="question-count-val">10</span></label>
                     <input type="range" id="question-slider" min="5" max="30" value="10">
                 </div>
@@ -164,7 +168,8 @@
         <!-- Screen 3: Play Clip Screen -->
         <section id="screen-play" class="screen">
             <div class="glass-card center-content">
-                <div class="question-counter">Question <span id="current-q-num">1</span> of <span id="total-q-num">10</span></div>
+                <div class="question-counter"><span id="q-counter-prefix">Question</span> <span id="current-q-num">1</span><span id="q-counter-total"> of <span id="total-q-num">10</span></span></div>
+                <div id="survival-lives" class="survival-lives" style="display: none;"></div>
 
                 <div class="play-container">
                     <button id="btn-play-clip" class="play-button">
@@ -199,6 +204,7 @@
         <section id="screen-answer" class="screen">
             <div class="glass-card">
                 <h2 id="answer-team-name" class="neon-text cyan">Team Name</h2>
+                <div id="survival-lives-answer" class="survival-lives" style="display: none;"></div>
                 <p class="subtext">Other teams — look away!</p>
 
                 <input type="text" id="inp-artist" class="neon-input" placeholder="Artist" autocomplete="off">
@@ -232,6 +238,11 @@
 
                 <div id="team-results-container">
                     <!-- Team result cards injected here -->
+                </div>
+
+                <div id="survival-result" class="survival-result" style="display: none;">
+                    <p id="survival-result-text"></p>
+                    <div id="survival-lives-reveal" class="survival-lives"></div>
                 </div>
 
                 <div class="running-score">

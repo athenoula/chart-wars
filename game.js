@@ -17,7 +17,9 @@ const Game = {
         scores: {},         // { teamName: totalScore }
         roundScores: [],    // History for stats
         audio: new Audio(),
-        mode: "teams",      // "teams" or "solo"
+        mode: "teams",      // "teams", "solo", or "survival"
+        lives: 3,
+        maxLives: 3,
         skippedCount: 0,
         isPlaying: false,
         replayUsed: false,
@@ -48,7 +50,11 @@ const Game = {
 
         // Leaderboard
         document.getElementById("btn-leaderboard").addEventListener("click", () => {
+            // Reset to solo tab
+            document.querySelectorAll(".leaderboard-tab-btn").forEach(b => b.classList.remove("active"));
+            document.querySelector('.leaderboard-tab-btn[data-lb="solo"]').classList.add("active");
             Leaderboard.render("leaderboard-content");
+            Game._bindLeaderboardTabs();
             Game.showScreen("leaderboard");
         });
         document.getElementById("btn-leaderboard-back").addEventListener("click", () => {
@@ -618,11 +624,13 @@ const Game = {
         const container = document.getElementById("player-inputs");
         const addBtn = document.getElementById("btn-add-player");
         const label = container.parentElement.querySelector("label");
+        const questionGroup = document.getElementById("question-count-group");
 
-        if (Game.state.mode === "solo") {
+        if (Game.state.mode === "solo" || Game.state.mode === "survival") {
             container.innerHTML = '<input type="text" class="neon-input" placeholder="Your Name" value="">';
             addBtn.style.display = "none";
             label.textContent = "Your Name";
+            questionGroup.style.display = Game.state.mode === "survival" ? "none" : "";
         } else {
             container.innerHTML = `
                 <input type="text" class="neon-input" placeholder="Team 1" value="Team 1">
@@ -630,6 +638,7 @@ const Game = {
             `;
             addBtn.style.display = "";
             label.textContent = "Players / Teams";
+            questionGroup.style.display = "";
         }
     },
 
@@ -639,7 +648,7 @@ const Game = {
         Game.state.teams = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
 
         if (Game.state.teams.length === 0) {
-            if (Game.state.mode === "solo") {
+            if (Game.state.mode === "solo" || Game.state.mode === "survival") {
                 Game.state.teams = ["Player"];
             } else {
                 alert("Add at least one player or team!");
@@ -660,6 +669,12 @@ const Game = {
         Game.state.roundScores = [];
         Game.state.roundAnswers = {};
         Game.state.skippedCount = 0;
+
+        // Survival mode: init lives, no question limit
+        if (Game.state.mode === "survival") {
+            Game.state.lives = 3;
+            Game.state.totalQuestions = 9999;
+        }
 
         Game.showScreen("play");
         Game.preparePlayScreen();
@@ -703,6 +718,7 @@ const Game = {
         Game.state.replayUsed = false;
         Game.state.mode = "teams";
         Game.state.skippedCount = 0;
+        Game.state.lives = 3;
         Game.state.decades = new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]);
         document.querySelectorAll(".decade-btn").forEach(b => b.classList.add("active"));
         Game.state.audio.pause();
@@ -782,7 +798,22 @@ const Game = {
 
         // Update replay button text for mode
         const replayBtn = document.getElementById("btn-replay-clip");
-        replayBtn.textContent = Game.state.mode === "solo" ? "Replay Clip (-1 pt)" : "Replay Clip (-1 pt all teams)";
+        replayBtn.textContent = (Game.state.mode === "solo" || Game.state.mode === "survival") ? "Replay Clip (-1 pt)" : "Replay Clip (-1 pt all teams)";
+
+        // Survival mode UI
+        const livesEl = document.getElementById("survival-lives");
+        const qCounterTotal = document.getElementById("q-counter-total");
+        const qCounterPrefix = document.getElementById("q-counter-prefix");
+        if (Game.state.mode === "survival") {
+            livesEl.style.display = "flex";
+            Game._renderLives("survival-lives");
+            qCounterTotal.style.display = "none";
+            qCounterPrefix.textContent = "Round";
+        } else {
+            livesEl.style.display = "none";
+            qCounterTotal.style.display = "";
+            qCounterPrefix.textContent = "Question";
+        }
 
         Game.state.audio.pause();
         Game.state.audio.currentTime = 0;
@@ -920,7 +951,16 @@ const Game = {
         const header = document.getElementById("answer-team-name");
         const subtext = document.querySelector("#screen-answer .subtext");
 
-        if (Game.state.mode === "solo") {
+        // Survival lives on answer screen
+        const livesAnswer = document.getElementById("survival-lives-answer");
+        if (Game.state.mode === "survival") {
+            livesAnswer.style.display = "flex";
+            Game._renderLives("survival-lives-answer");
+        } else {
+            livesAnswer.style.display = "none";
+        }
+
+        if (Game.state.mode === "solo" || Game.state.mode === "survival") {
             header.textContent = "Enter your answers";
             subtext.style.display = "none";
         } else {
@@ -967,6 +1007,7 @@ const Game = {
         resultsContainer.innerHTML = "";
 
         const roundStats = { question: Game.state.currentQuestion, teams: [] };
+        let survivalPassed = true;
 
         Game.state.teams.forEach(team => {
             const guesses = Game.state.roundAnswers[team] || { artist: "", title: "", year: "" };
@@ -974,6 +1015,13 @@ const Game = {
             Game.state.scores[team] += score.total;
 
             roundStats.teams.push({ name: team, score: score.total });
+
+            // Survival check: must get at least partial credit on artist OR title
+            if (Game.state.mode === "survival") {
+                if (score.artist.points === 0 && score.title.points === 0) {
+                    survivalPassed = false;
+                }
+            }
 
             // Build result card with partial-match reasons
             const card = document.createElement("div");
@@ -999,8 +1047,29 @@ const Game = {
         document.getElementById("reveal-artist").textContent = track.artist;
         document.getElementById("reveal-year").textContent = track.year;
 
+        // Survival mode: update lives and show result
+        const survivalResultEl = document.getElementById("survival-result");
+        if (Game.state.mode === "survival") {
+            survivalResultEl.style.display = "block";
+            if (!survivalPassed) {
+                Game.state.lives--;
+            }
+            Game._renderSurvivalResult(survivalPassed);
+            Game._renderLives("survival-lives-reveal");
+        } else {
+            survivalResultEl.style.display = "none";
+        }
+
         // Running Score
         Game._renderScoreList("running-score-list");
+
+        // Update next button text
+        const nextBtn = document.getElementById("btn-next-question");
+        if (Game.state.mode === "survival" && Game.state.lives <= 0) {
+            nextBtn.textContent = "Game Over";
+        } else {
+            nextBtn.textContent = "Next Question";
+        }
 
         Game.showScreen("reveal");
     },
@@ -1054,6 +1123,17 @@ const Game = {
             return;
         }
 
+        if (Game.state.mode === "survival") {
+            if (Game.state.lives <= 0) {
+                Game.showScreen("final");
+                Game.showFinalResults();
+            } else {
+                Game.showScreen("play");
+                Game.preparePlayScreen();
+            }
+            return;
+        }
+
         if (Game.state.mode === "solo") {
             // Solo: skip intermediate scoreboard
             if (Game.state.currentQuestion >= Game.state.totalQuestions) {
@@ -1085,32 +1165,97 @@ const Game = {
         const highestScore = Math.max(...allScores);
         const winner = Game.state.teams.find(t => Game.state.scores[t] === highestScore);
 
-        statsDiv.innerHTML = `
-            <p>Rounds played: ${totalRounds}</p>
-            <p>Tracks heard: ${Game.state.usedTracks.size}</p>
-            <p>Max possible score: ${maxPossible}</p>
-            ${Game.state.skippedCount > 0 ? `<p>Tracks skipped: ${Game.state.skippedCount}</p>` : ""}
-            ${Game.state.teams.length > 1 ? `<p>Winner: ${Game._escapeHtml(winner)} with ${highestScore} pts!</p>` : ""}
-        `;
-
-        // Save to leaderboard in solo mode
-        if (Game.state.mode === "solo" && totalRounds > 0) {
+        if (Game.state.mode === "survival") {
             const playerName = Game.state.teams[0];
             const score = Game.state.scores[playerName] || 0;
-            const pct = maxPossible > 0 ? Math.round((score / maxPossible) * 1000) / 10 : 0;
-            Leaderboard.saveEntry({
-                name: playerName,
-                score: score,
-                maxPossible: maxPossible,
-                date: new Date().toISOString(),
-                percentage: pct
-            });
-            const saved = document.createElement("p");
-            saved.className = "cyan";
-            saved.textContent = "Score saved to leaderboard!";
-            statsDiv.appendChild(saved);
+            statsDiv.innerHTML = `
+                <p>Rounds survived: ${totalRounds}</p>
+                <p>Total score: ${score} pts</p>
+                <p>Tracks heard: ${Game.state.usedTracks.size}</p>
+                ${Game.state.skippedCount > 0 ? `<p>Tracks skipped: ${Game.state.skippedCount}</p>` : ""}
+            `;
+            if (totalRounds > 0) {
+                Leaderboard.saveEntry({
+                    name: playerName,
+                    score: score,
+                    rounds: totalRounds,
+                    date: new Date().toISOString()
+                }, Leaderboard.SURVIVAL_KEY);
+                const saved = document.createElement("p");
+                saved.className = "cyan";
+                saved.textContent = "Score saved to survival leaderboard!";
+                statsDiv.appendChild(saved);
+            }
+        } else {
+            statsDiv.innerHTML = `
+                <p>Rounds played: ${totalRounds}</p>
+                <p>Tracks heard: ${Game.state.usedTracks.size}</p>
+                <p>Max possible score: ${maxPossible}</p>
+                ${Game.state.skippedCount > 0 ? `<p>Tracks skipped: ${Game.state.skippedCount}</p>` : ""}
+                ${Game.state.teams.length > 1 ? `<p>Winner: ${Game._escapeHtml(winner)} with ${highestScore} pts!</p>` : ""}
+            `;
+
+            // Save to leaderboard in solo mode
+            if (Game.state.mode === "solo" && totalRounds > 0) {
+                const playerName = Game.state.teams[0];
+                const score = Game.state.scores[playerName] || 0;
+                const pct = maxPossible > 0 ? Math.round((score / maxPossible) * 1000) / 10 : 0;
+                Leaderboard.saveEntry({
+                    name: playerName,
+                    score: score,
+                    maxPossible: maxPossible,
+                    date: new Date().toISOString(),
+                    percentage: pct
+                });
+                const saved = document.createElement("p");
+                saved.className = "cyan";
+                saved.textContent = "Score saved to leaderboard!";
+                statsDiv.appendChild(saved);
+            }
         }
-    }
+    },
+
+    // ── Survival Helpers ──────────────────────────────────────────────────────
+    _renderLives(containerId) {
+        const container = document.getElementById(containerId);
+        let html = "";
+        for (let i = 0; i < Game.state.maxLives; i++) {
+            const cls = i < Game.state.lives ? "active" : "lost";
+            html += `<span class="life-heart ${cls}">&#9829;</span>`;
+        }
+        container.innerHTML = html;
+    },
+
+    _renderSurvivalResult(survived) {
+        const container = document.getElementById("survival-result");
+        const textEl = document.getElementById("survival-result-text");
+        container.className = "survival-result";
+
+        if (Game.state.lives <= 0) {
+            container.classList.add("game-over");
+            textEl.textContent = "GAME OVER";
+        } else if (!survived) {
+            container.classList.add("life-lost");
+            textEl.textContent = `Life lost! ${Game.state.lives} ${Game.state.lives === 1 ? "life" : "lives"} remaining`;
+        } else {
+            container.classList.add("survived");
+            textEl.textContent = "You survived!";
+        }
+    },
+
+    _bindLeaderboardTabs() {
+        document.querySelectorAll(".leaderboard-tab-btn").forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener("click", (e) => {
+                document.querySelectorAll(".leaderboard-tab-btn").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+                const tab = e.target.dataset.lb;
+                const key = tab === "survival" ? Leaderboard.SURVIVAL_KEY : Leaderboard.STORAGE_KEY;
+                Leaderboard.render("leaderboard-content", key);
+            });
+        });
+    },
 };
 
 // ── Playlist Export Wrappers (called from HTML onclick) ──────────────────────
