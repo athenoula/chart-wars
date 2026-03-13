@@ -818,7 +818,7 @@ const Game = {
         const skipBtn = document.getElementById("btn-skip-track");
         if (readyBtn) readyBtn.style.display = "";
         if (replayBtn) replayBtn.style.display = "";
-        if (skipBtn) skipBtn.style.display = "";
+        if (skipBtn) skipBtn.style.display = Game.state.mode === "survival" ? "none" : "";
         const mpStatus = document.getElementById("mp-answer-status");
         if (mpStatus) mpStatus.style.display = "none";
 
