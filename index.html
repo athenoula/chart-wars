@@ -18,11 +18,62 @@
                 <h1 class="neon-text magenta">CHART</h1>
                 <h1 class="neon-text cyan">WARS</h1>
                 <p class="subtitle">Name the artist. Name the track. Name the year.</p>
-                <button id="btn-new-game" class="neon-button">New Game</button>
-                <button id="btn-host-game" class="neon-button cyan" style="margin-top: 10px;">Host Online Game</button>
+                <button id="btn-solo-menu" class="neon-button">Solo Play</button>
+                <button id="btn-mp-menu" class="neon-button cyan" style="margin-top: 10px;">Multiplayer</button>
                 <button id="btn-join-game" class="neon-button" style="margin-top: 10px;">Join Game</button>
                 <button id="btn-leaderboard" class="neon-button cyan" style="margin-top: 10px;">Leaderboard</button>
                 <footer class="footer-text">UK Top Tracks + All-Time Classics | 1942 — 2026 | 786 Tracks</footer>
+            </div>
+        </section>
+
+        <!-- Screen: Solo Menu -->
+        <section id="screen-solo-menu" class="screen">
+            <div class="glass-card">
+                <h2 class="neon-text cyan" style="text-align:center;">Solo Play</h2>
+                <div class="mode-card" id="solo-card-challenge">
+                    <div class="mode-card-header">
+                        <span class="mode-card-title">Challenge</span>
+                    </div>
+                    <p class="mode-card-desc">Take turns guessing artist, track and year. Pass the phone between teams. Who will score the most?</p>
+                    <button class="neon-button mode-card-btn" data-solo-mode="teams">Play</button>
+                </div>
+                <div class="mode-card" id="solo-card-solo">
+                    <div class="mode-card-header">
+                        <span class="mode-card-title">Solo</span>
+                    </div>
+                    <p class="mode-card-desc">Answer all tracks yourself. Test your music knowledge and climb the leaderboard.</p>
+                    <button class="neon-button mode-card-btn" data-solo-mode="solo">Play</button>
+                </div>
+                <div class="mode-card" id="solo-card-survival">
+                    <div class="mode-card-header">
+                        <span class="mode-card-title">Survival</span>
+                    </div>
+                    <p class="mode-card-desc">Three lives. Get the artist or title right each round or lose a life. How far can you go?</p>
+                    <button class="neon-button mode-card-btn" data-solo-mode="survival">Play</button>
+                </div>
+                <button id="btn-solo-menu-back" class="neon-button quit-btn" style="margin-top: 4px;">Back</button>
+            </div>
+        </section>
+
+        <!-- Screen: Multiplayer Menu -->
+        <section id="screen-mp-menu" class="screen">
+            <div class="glass-card">
+                <h2 class="neon-text cyan" style="text-align:center;">Multiplayer</h2>
+                <div class="mode-card" id="mp-card-teams">
+                    <div class="mode-card-header">
+                        <span class="mode-card-title">Teams</span>
+                    </div>
+                    <p class="mode-card-desc">Same room, own devices. Everyone joins and answers simultaneously. Great for pub quizzes and parties.</p>
+                    <button class="neon-button mode-card-btn" id="btn-host-teams">Host Game</button>
+                </div>
+                <div class="mode-card" id="mp-card-remote">
+                    <div class="mode-card-header">
+                        <span class="mode-card-title">Remote</span>
+                    </div>
+                    <p class="mode-card-desc">Play from anywhere. Share a room code with friends and compete online in real time.</p>
+                    <button class="neon-button mode-card-btn cyan" id="btn-host-remote">Host Game</button>
+                </div>
+                <button id="btn-mp-menu-back" class="neon-button quit-btn" style="margin-top: 4px;">Back</button>
             </div>
         </section>
 
@@ -55,14 +106,14 @@
                 <div class="control-group">
                     <label>Decades <span id="host-decade-track-count" class="decade-count"></span></label>
                     <div class="decade-grid">
-                        <button class="host-decade-btn active" data-decade="1950">50s</button>
-                        <button class="host-decade-btn active" data-decade="1960">60s</button>
-                        <button class="host-decade-btn active" data-decade="1970">70s</button>
-                        <button class="host-decade-btn active" data-decade="1980">80s</button>
-                        <button class="host-decade-btn active" data-decade="1990">90s</button>
-                        <button class="host-decade-btn active" data-decade="2000">00s</button>
-                        <button class="host-decade-btn active" data-decade="2010">10s</button>
-                        <button class="host-decade-btn active" data-decade="2020">20s</button>
+                        <button class="host-decade-btn" data-decade="1950">50s</button>
+                        <button class="host-decade-btn" data-decade="1960">60s</button>
+                        <button class="host-decade-btn" data-decade="1970">70s</button>
+                        <button class="host-decade-btn" data-decade="1980">80s</button>
+                        <button class="host-decade-btn" data-decade="1990">90s</button>
+                        <button class="host-decade-btn" data-decade="2000">00s</button>
+                        <button class="host-decade-btn" data-decade="2010">10s</button>
+                        <button class="host-decade-btn" data-decade="2020">20s</button>
                     </div>
                 </div>
 
@@ -120,16 +171,8 @@
         <!-- Screen 2: Setup Screen -->
         <section id="screen-setup" class="screen">
             <div class="glass-card">
-                <h2 class="neon-text cyan">Setup</h2>
-
-                <div class="control-group">
-                    <label>Mode</label>
-                    <div class="segmented-control">
-                        <button class="mode-btn active" data-mode="teams">Teams</button>
-                        <button class="mode-btn" data-mode="solo">Solo</button>
-                        <button class="mode-btn" data-mode="survival">Survival</button>
-                    </div>
-                </div>
+                <h2 class="neon-text cyan" id="setup-title">Setup</h2>
+                <p id="setup-mode-desc" class="mode-card-desc" style="margin-bottom: 4px;"></p>
 
                 <div class="control-group">
                     <label>Players / Teams</label>
@@ -145,14 +188,14 @@
                 <div class="control-group">
                     <label>Decades <span id="decade-track-count" class="decade-count"></span></label>
                     <div class="decade-grid">
-                        <button class="decade-btn active" data-decade="1950">50s</button>
-                        <button class="decade-btn active" data-decade="1960">60s</button>
-                        <button class="decade-btn active" data-decade="1970">70s</button>
-                        <button class="decade-btn active" data-decade="1980">80s</button>
-                        <button class="decade-btn active" data-decade="1990">90s</button>
-                        <button class="decade-btn active" data-decade="2000">00s</button>
-                        <button class="decade-btn active" data-decade="2010">10s</button>
-                        <button class="decade-btn active" data-decade="2020">20s</button>
+                        <button class="decade-btn" data-decade="1950">50s</button>
+                        <button class="decade-btn" data-decade="1960">60s</button>
+                        <button class="decade-btn" data-decade="1970">70s</button>
+                        <button class="decade-btn" data-decade="1980">80s</button>
+                        <button class="decade-btn" data-decade="1990">90s</button>
+                        <button class="decade-btn" data-decade="2000">00s</button>
+                        <button class="decade-btn" data-decade="2010">10s</button>
+                        <button class="decade-btn" data-decade="2020">20s</button>
                     </div>
                 </div>
 
@@ -162,6 +205,7 @@
                 </div>
 
                 <button id="btn-start-game" class="neon-button">Start Game</button>
+                <button id="btn-setup-back" class="neon-button quit-btn" style="margin-top: 6px;">Back</button>
             </div>
         </section>
 
@@ -255,6 +299,11 @@
                     <div id="survival-lives-reveal" class="survival-lives"></div>
                 </div>
 
+                <div id="pending-contests-section" class="pending-contests" style="display:none;">
+                    <h4 class="pending-contests-title">Pending Contests</h4>
+                    <div id="pending-contests-list"></div>
+                </div>
+
                 <div class="running-score">
                     <h4>Running Standings</h4>
                     <ul id="running-score-list" class="scoreboard-list"></ul>
@@ -309,6 +358,20 @@
             </div>
         </section>
     </main>
+
+    <!-- Contest Modal -->
+    <div id="contest-modal" class="contest-modal-overlay" style="display:none;">
+        <div class="contest-modal-box glass-card">
+            <h3 class="neon-text cyan" style="font-size:1em; margin-bottom: 4px;">Contest Answer</h3>
+            <p id="contest-modal-team" class="contest-modal-team"></p>
+            <p id="contest-modal-context" class="contest-modal-context"></p>
+            <textarea id="contest-reason" class="neon-input contest-textarea" placeholder="Why should points be awarded? (e.g. spelling, alternate name...)" rows="3"></textarea>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="btn-contest-submit" class="neon-button cyan" style="flex:1;">Submit Contest</button>
+                <button id="btn-contest-cancel" class="neon-button quit-btn" style="flex:1;">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts (order matters) -->
     <script src="retro-grid.js"></script>

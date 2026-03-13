@@ -3,6 +3,7 @@
 
 const Game = {
     HISTORY_KEY: "chartWarsPlayedTracks",
+    CONTEST_KEY: "chartWarsContests",
 
     state: {
         screen: "title",
@@ -24,7 +25,7 @@ const Game = {
         isPlaying: false,
         replayUsed: false,
         clipInterval: null, // Track the progress interval so we can clear it
-        decades: new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]),
+        decades: new Set(),
         multiplayer: {
             active: false,
             roomCode: null,
@@ -46,7 +47,30 @@ const Game = {
     // ── Event Binding ───────────────────────────────────────────────────────────
     bindEvents() {
         // Title Screen
-        document.getElementById("btn-new-game").addEventListener("click", () => Game.showScreen("setup"));
+        document.getElementById("btn-solo-menu").addEventListener("click", () => Game.showScreen("solo-menu"));
+        document.getElementById("btn-mp-menu").addEventListener("click", () => {
+            if (!Multiplayer.isAvailable()) {
+                alert("Multiplayer requires Firebase — check your firebase-config.js.");
+                return;
+            }
+            Game.showScreen("mp-menu");
+        });
+
+        // Solo Menu
+        document.querySelectorAll(".mode-card-btn[data-solo-mode]").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                Game.state.mode = e.target.dataset.soloMode;
+                Game.state.decades = new Set();
+                document.querySelectorAll(".decade-btn").forEach(b => b.classList.remove("active"));
+                Game.updateDecadeCount();
+                Game.updateSetupForMode();
+                Game.showScreen("setup");
+            });
+        });
+        document.getElementById("btn-solo-menu-back").addEventListener("click", () => Game.showScreen("title"));
+
+        // Setup back
+        document.getElementById("btn-setup-back").addEventListener("click", () => Game.showScreen("solo-menu"));
 
         // Leaderboard
         document.getElementById("btn-leaderboard").addEventListener("click", () => {
@@ -145,24 +169,35 @@ const Game = {
             Game.showScreen("title");
         });
 
+        // Contest modal
+        document.getElementById("btn-contest-cancel").addEventListener("click", () => {
+            document.getElementById("contest-modal").style.display = "none";
+        });
+        document.getElementById("btn-contest-submit").addEventListener("click", Game._submitContest);
+
         // ── Multiplayer Buttons ──────────────────────────────────────────────
         Game._bindMultiplayerEvents();
     },
 
     _bindMultiplayerEvents() {
-        // Hide multiplayer buttons if Firebase unavailable
+        // Hide multiplayer/join buttons if Firebase unavailable
         if (!Multiplayer.isAvailable()) {
-            const hostBtn = document.getElementById("btn-host-game");
             const joinBtn = document.getElementById("btn-join-game");
-            if (hostBtn) hostBtn.style.display = "none";
             if (joinBtn) joinBtn.style.display = "none";
             return;
         }
 
         Multiplayer.init();
 
-        // Host Game button
-        document.getElementById("btn-host-game").addEventListener("click", () => {
+        // Multiplayer Menu buttons
+        document.getElementById("btn-mp-menu-back").addEventListener("click", () => Game.showScreen("title"));
+        document.getElementById("btn-host-teams").addEventListener("click", () => {
+            Game.state.multiplayer.mode = "same-room";
+            Game._initHostDecades();
+            Game.showScreen("host-setup");
+        });
+        document.getElementById("btn-host-remote").addEventListener("click", () => {
+            Game.state.multiplayer.mode = "remote";
             Game._initHostDecades();
             Game.showScreen("host-setup");
         });
@@ -248,8 +283,8 @@ const Game = {
 
     // ── Host Decade Count ────────────────────────────────────────────────────
     _initHostDecades() {
-        Game.state.decades = new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]);
-        document.querySelectorAll(".host-decade-btn").forEach(b => b.classList.add("active"));
+        Game.state.decades = new Set();
+        document.querySelectorAll(".host-decade-btn").forEach(b => b.classList.remove("active"));
         Game._updateHostDecadeCount();
     },
 
@@ -510,6 +545,8 @@ const Game = {
         const track = Game.state.currentTrack;
         const resultsContainer = document.getElementById("team-results-container");
         resultsContainer.innerHTML = "";
+        document.getElementById("pending-contests-section").style.display = "none";
+        document.getElementById("pending-contests-list").innerHTML = "";
         const roundStats = { question: Game.state.currentQuestion, teams: [] };
         const firebaseResults = {
             correctAnswer: {
@@ -530,7 +567,10 @@ const Game = {
         const hostCard = document.createElement("div");
         hostCard.className = "team-result-card";
         hostCard.innerHTML = `
-            <h4 class="cyan">Host (you)</h4>
+            <div class="card-header-row">
+                <h4 class="cyan">Host (you)</h4>
+                <button class="contest-btn" data-team="Host">Contest</button>
+            </div>
             ${Game._scoreRow("Artist", hostGuesses.artist, hostScore.artist)}
             ${Game._scoreRow("Title", hostGuesses.title, hostScore.title)}
             ${Game._scoreRow("Year", hostGuesses.year, hostScore.year)}
@@ -539,6 +579,9 @@ const Game = {
                 <span class="round-total ${hostScore.total >= 6 ? 'text-green' : hostScore.total > 0 ? 'text-amber' : 'text-red'}">${hostScore.total} pts</span>
             </div>
         `;
+        hostCard.querySelector(".contest-btn").addEventListener("click", () => {
+            Game._openContestModal("Host", hostGuesses, track);
+        });
         resultsContainer.appendChild(hostCard);
 
         standings["host"] = { name: "Host", score: Game.state.scores["Host"] };
@@ -556,7 +599,10 @@ const Game = {
             const card = document.createElement("div");
             card.className = "team-result-card";
             card.innerHTML = `
-                <h4 class="cyan">${Game._escapeHtml(player.name)}</h4>
+                <div class="card-header-row">
+                    <h4 class="cyan">${Game._escapeHtml(player.name)}</h4>
+                    <button class="contest-btn" data-team="${Game._escapeHtml(player.name)}">Contest</button>
+                </div>
                 ${Game._scoreRow("Artist", guesses.artist, score.artist)}
                 ${Game._scoreRow("Title", guesses.title, score.title)}
                 ${Game._scoreRow("Year", guesses.year, score.year)}
@@ -565,6 +611,9 @@ const Game = {
                     <span class="round-total ${score.total >= 6 ? 'text-green' : score.total > 0 ? 'text-amber' : 'text-red'}">${score.total} pts</span>
                 </div>
             `;
+            card.querySelector(".contest-btn").addEventListener("click", () => {
+                Game._openContestModal(player.name, guesses, track);
+            });
             resultsContainer.appendChild(card);
 
             firebaseResults[pid] = {
@@ -677,6 +726,17 @@ const Game = {
         const addBtn = document.getElementById("btn-add-player");
         const label = container.parentElement.querySelector("label");
         const questionGroup = document.getElementById("question-count-group");
+        const titleEl = document.getElementById("setup-title");
+        const descEl = document.getElementById("setup-mode-desc");
+
+        const MODE_INFO = {
+            teams:    { title: "Challenge",  desc: "Take turns guessing artist, track and year. Pass the phone between teams." },
+            solo:     { title: "Solo",        desc: "Answer all tracks yourself. Test your music knowledge." },
+            survival: { title: "Survival",    desc: "Three lives. Get the artist or title right each round or lose a life." }
+        };
+        const info = MODE_INFO[Game.state.mode] || MODE_INFO.teams;
+        if (titleEl) titleEl.textContent = info.title;
+        if (descEl)  descEl.textContent  = info.desc;
 
         if (Game.state.mode === "solo" || Game.state.mode === "survival") {
             container.innerHTML = '<input type="text" class="neon-input" placeholder="Your Name" value="">';
@@ -771,8 +831,8 @@ const Game = {
         Game.state.mode = "teams";
         Game.state.skippedCount = 0;
         Game.state.lives = 3;
-        Game.state.decades = new Set(["1950","1960","1970","1980","1990","2000","2010","2020"]);
-        document.querySelectorAll(".decade-btn").forEach(b => b.classList.add("active"));
+        Game.state.decades = new Set();
+        document.querySelectorAll(".decade-btn").forEach(b => b.classList.remove("active"));
         Game.state.audio.pause();
         Game.state.audio.currentTime = 0;
         if (Game.state.clipInterval) {
@@ -1060,6 +1120,8 @@ const Game = {
         const track = Game.state.currentTrack;
         const resultsContainer = document.getElementById("team-results-container");
         resultsContainer.innerHTML = "";
+        document.getElementById("pending-contests-section").style.display = "none";
+        document.getElementById("pending-contests-list").innerHTML = "";
 
         const roundStats = { question: Game.state.currentQuestion, teams: [] };
         let survivalPassed = true;
@@ -1078,11 +1140,14 @@ const Game = {
                 }
             }
 
-            // Build result card with partial-match reasons
+            // Build result card with partial-match reasons and a contest button
             const card = document.createElement("div");
             card.className = "team-result-card";
             card.innerHTML = `
-                <h4 class="cyan">${team}</h4>
+                <div class="card-header-row">
+                    <h4 class="cyan">${Game._escapeHtml(team)}</h4>
+                    <button class="contest-btn" data-team="${Game._escapeHtml(team)}">Contest</button>
+                </div>
                 ${Game._scoreRow("Artist", guesses.artist, score.artist)}
                 ${Game._scoreRow("Title", guesses.title, score.title)}
                 ${Game._scoreRow("Year", guesses.year, score.year)}
@@ -1091,6 +1156,9 @@ const Game = {
                     <span class="round-total ${score.total >= 6 ? 'text-green' : score.total > 0 ? 'text-amber' : 'text-red'}">${score.total} pts</span>
                 </div>
             `;
+            card.querySelector(".contest-btn").addEventListener("click", () => {
+                Game._openContestModal(team, guesses, track);
+            });
             resultsContainer.appendChild(card);
         });
 
@@ -1298,6 +1366,105 @@ const Game = {
         }
     },
 
+    // ── Contest System ────────────────────────────────────────────────────────
+    _openContestModal(teamName, guesses, track) {
+        Game._contestPending = { teamName, guesses, track };
+        const modal = document.getElementById("contest-modal");
+        document.getElementById("contest-modal-team").textContent = `Contesting: ${teamName}`;
+        document.getElementById("contest-modal-context").textContent =
+            `Artist: "${guesses.artist || "—"}" | Title: "${guesses.title || "—"}" | Year: ${guesses.year || "—"}`;
+        document.getElementById("contest-reason").value = "";
+        modal.style.display = "flex";
+        setTimeout(() => document.getElementById("contest-reason").focus(), 100);
+    },
+
+    _submitContest() {
+        const reason = document.getElementById("contest-reason").value.trim();
+        if (!reason) return;
+        const { teamName, guesses, track } = Game._contestPending;
+
+        const contest = {
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            timestamp: new Date().toISOString(),
+            questionNum: Game.state.currentQuestion,
+            track: { title: track.title, artist: track.artist, year: track.year },
+            teamName,
+            theirAnswer: { artist: guesses.artist || "", title: guesses.title || "", year: guesses.year || "" },
+            reason,
+            status: "pending",
+            pointsAwarded: 0
+        };
+
+        // Save to localStorage log
+        const log = Game._loadContestLog();
+        log.push(contest);
+        localStorage.setItem(Game.CONTEST_KEY, JSON.stringify(log));
+
+        document.getElementById("contest-modal").style.display = "none";
+        Game._renderPendingContests();
+    },
+
+    _loadContestLog() {
+        try { return JSON.parse(localStorage.getItem(Game.CONTEST_KEY) || "[]"); } catch { return []; }
+    },
+
+    _renderPendingContests() {
+        const log = Game._loadContestLog();
+        const pending = log.filter(c =>
+            c.status === "pending" && c.questionNum === Game.state.currentQuestion
+        );
+        const section = document.getElementById("pending-contests-section");
+        const list = document.getElementById("pending-contests-list");
+
+        if (pending.length === 0) { section.style.display = "none"; return; }
+        section.style.display = "block";
+        list.innerHTML = "";
+
+        pending.forEach(contest => {
+            const div = document.createElement("div");
+            div.className = "contest-item";
+            div.innerHTML = `
+                <div class="contest-item-header">
+                    <strong class="cyan">${Game._escapeHtml(contest.teamName)}</strong>
+                    <span class="contest-item-track">${Game._escapeHtml(contest.track.title)} — ${Game._escapeHtml(contest.track.artist)} (${contest.track.year})</span>
+                </div>
+                <p class="contest-item-answer">Their answer: "${Game._escapeHtml(contest.theirAnswer.artist)}" / "${Game._escapeHtml(contest.theirAnswer.title)}" / ${Game._escapeHtml(String(contest.theirAnswer.year))}</p>
+                <p class="contest-item-reason">"${Game._escapeHtml(contest.reason)}"</p>
+                <div class="contest-item-actions">
+                    <input type="number" class="neon-input contest-pts-input" placeholder="pts" min="1" max="8" value="1">
+                    <button class="neon-button cyan contest-award-btn" style="flex:1;" data-id="${contest.id}">Award Points</button>
+                    <button class="neon-button contest-dismiss-btn quit-btn" style="flex:1;" data-id="${contest.id}">Dismiss</button>
+                </div>
+            `;
+            div.querySelector(".contest-award-btn").addEventListener("click", () => {
+                const pts = parseInt(div.querySelector(".contest-pts-input").value) || 1;
+                Game._resolveContest(contest.id, "awarded", pts);
+            });
+            div.querySelector(".contest-dismiss-btn").addEventListener("click", () => {
+                Game._resolveContest(contest.id, "dismissed", 0);
+            });
+            list.appendChild(div);
+        });
+    },
+
+    _resolveContest(contestId, status, points) {
+        const log = Game._loadContestLog();
+        const idx = log.findIndex(c => c.id === contestId);
+        if (idx === -1) return;
+        log[idx].status = status;
+        log[idx].pointsAwarded = points;
+        localStorage.setItem(Game.CONTEST_KEY, JSON.stringify(log));
+
+        if (status === "awarded" && points > 0) {
+            const teamName = log[idx].teamName;
+            if (Game.state.scores[teamName] !== undefined) {
+                Game.state.scores[teamName] += points;
+                Game._renderScoreList("running-score-list");
+            }
+        }
+        Game._renderPendingContests();
+    },
+
     // ── Host Answer Lock-in (Multiplayer) ─────────────────────────────────────
     _hostLockIn() {
         const mp = Game.state.multiplayer;
@@ -1318,12 +1485,12 @@ const Game = {
     _updateDecadesSummary() {
         const el = document.getElementById("decades-summary");
         const sorted = [...Game.state.decades].sort();
-        if (sorted.length === 0 || sorted.length === 8) {
+        if (sorted.length === 8) {
             el.style.display = "none";
             return;
         }
         const labels = sorted.map(d => d + "s");
-        el.textContent = labels.join(" / ");
+        el.textContent = sorted.length === 0 ? "No decades selected" : labels.join(" / ");
         el.style.display = "block";
     },
 

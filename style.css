@@ -530,6 +530,119 @@ h1, h2, h3 { margin: 0; }
     letter-spacing: 0.05em;
 }
 
+/* ── Mode Cards (solo-menu / mp-menu) ─────────────────────────────────────── */
+
+.mode-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s;
+}
+.mode-card:hover { border-color: rgba(255,0,255,0.4); }
+
+.mode-card-header { display: flex; align-items: center; gap: 10px; }
+.mode-card-title {
+    font-weight: bold;
+    font-size: 1.1em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--secondary);
+    text-shadow: 0 0 6px var(--secondary);
+}
+.mode-card-desc {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.mode-card-btn { margin-top: 4px; }
+
+/* Card header row (team name + contest button) */
+.card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+/* ── Contest System ────────────────────────────────────────────────────────── */
+
+.contest-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+}
+.contest-btn:hover { border-color: var(--score-partial); color: var(--score-partial); }
+
+/* Contest modal overlay */
+.contest-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.contest-modal-box {
+    max-width: 420px;
+    width: 100%;
+    gap: 10px;
+}
+.contest-modal-team {
+    font-weight: bold;
+    color: var(--secondary);
+    font-size: 0.95em;
+}
+.contest-modal-context {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+}
+.contest-textarea { font-size: 14px; resize: vertical; }
+
+/* Pending contests section */
+.pending-contests {
+    border: 1px solid var(--score-partial);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    background: rgba(255,170,0,0.05);
+}
+.pending-contests-title {
+    color: var(--score-partial);
+    text-transform: uppercase;
+    font-size: 0.8em;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+}
+.contest-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.contest-item-header { display: flex; flex-direction: column; gap: 2px; }
+.contest-item-track { font-size: 0.75em; color: var(--text-secondary); }
+.contest-item-answer { font-size: 0.8em; color: var(--text-secondary); }
+.contest-item-reason { font-size: 0.85em; color: var(--text-primary); font-style: italic; }
+.contest-item-actions { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.contest-pts-input { width: 60px; padding: 8px; font-size: 14px; text-align: center; }
+
 /* Leaderboard tabs */
 .leaderboard-tabs { margin-bottom: 12px; }
 
