@@ -70,7 +70,7 @@ const Game = {
         document.getElementById("btn-solo-menu-back").addEventListener("click", () => Game.showScreen("title"));
 
         // Setup back
-        document.getElementById("btn-setup-back").addEventListener("click", () => Game.showScreen("solo-menu"));
+        document.getElementById("btn-setup-back").addEventListener("click", () => Game.showScreen(Game.state.mode === "teams" ? "mp-menu" : "solo-menu"));
 
         // Leaderboard
         document.getElementById("btn-leaderboard").addEventListener("click", () => {
@@ -191,6 +191,14 @@ const Game = {
 
         // Multiplayer Menu buttons
         document.getElementById("btn-mp-menu-back").addEventListener("click", () => Game.showScreen("title"));
+        document.getElementById("btn-pass-play").addEventListener("click", () => {
+            Game.state.mode = "teams";
+            Game.state.decades = new Set();
+            document.querySelectorAll(".decade-btn").forEach(b => b.classList.remove("active"));
+            Game.updateDecadeCount();
+            Game.updateSetupForMode();
+            Game.showScreen("setup");
+        });
         document.getElementById("btn-host-teams").addEventListener("click", () => {
             Game.state.multiplayer.mode = "same-room";
             Game._initHostDecades();
