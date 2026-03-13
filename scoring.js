@@ -22,11 +22,14 @@ const Scoring = {
         // Strip diacritics/accents (Beyoncé → beyonce, Motörhead → motorhead)
         s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+        // Handle stylised punctuation-as-letter (P!nk → pink)
+        s = s.replace(/p!nk/gi, "pink");
+
+        // Normalise connectors: & + → and (must run before punctuation strip)
+        s = s.replace(/\s*[&+]\s*/g, " and ");
+
         // Remove punctuation except hyphens and apostrophes within words
         s = s.replace(/[^\w\s'-]/g, "");
-
-        // Normalise connectors: & + → and
-        s = s.replace(/\s*[&+]\s*/g, " and ");
 
         // Strip feat/ft/featuring and everything after
         s = s.replace(/\s*\b(feat\.?|ft\.?|featuring)\b\s*/i, " ");
