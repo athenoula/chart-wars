@@ -339,6 +339,55 @@ const Multiplayer = {
         }
     },
 
+    // ── Contest System ───────────────────────────────────────────────────────
+
+    // Write to top-level permanent developer log (all modes)
+    async writeContestLog(contestData) {
+        if (!Multiplayer._db) return;
+        await Multiplayer._db.ref(`contestLog/${contestData.id}`).set({
+            ...contestData,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+    },
+
+    // Update an existing log entry (e.g. when resolved)
+    async updateContestLog(contestId, updates) {
+        if (!Multiplayer._db) return;
+        await Multiplayer._db.ref(`contestLog/${contestId}`).update(updates);
+    },
+
+    // Write to room-scoped pending queue (remote multiplayer)
+    async writeRoomContest(roomCode, contestData) {
+        if (!Multiplayer._db) return;
+        await Multiplayer._db.ref(`rooms/${roomCode}/contests/${contestData.id}`).set(contestData);
+    },
+
+    // Host listens for all contests in room (real-time)
+    listenToContests(roomCode, callback) {
+        if (!Multiplayer._db) return;
+        const ref = Multiplayer._db.ref(`rooms/${roomCode}/contests`);
+        ref.on("value", snap => callback(snap.val() || {}));
+        Multiplayer._listeners.push({ ref, event: "value" });
+    },
+
+    // Listen for a single contest's status (player-side resolution feedback)
+    listenToContestStatus(roomCode, contestId, callback) {
+        if (!Multiplayer._db) return;
+        const ref = Multiplayer._db.ref(`rooms/${roomCode}/contests/${contestId}/status`);
+        ref.on("value", snap => { if (snap.val()) callback(snap.val()); });
+        Multiplayer._listeners.push({ ref, event: "value" });
+    },
+
+    // Host resolves a contest — updates room + standings + developer log
+    async resolveContest(roomCode, contestId, status, pointsAwarded, teamName, updatedStandings) {
+        if (!Multiplayer._db) return;
+        await Multiplayer._db.ref(`rooms/${roomCode}/contests/${contestId}`).update({ status, pointsAwarded });
+        if (status === "approved" && pointsAwarded > 0 && updatedStandings) {
+            await Multiplayer._db.ref(`rooms/${roomCode}/standings`).update(updatedStandings);
+        }
+        await Multiplayer.updateContestLog(contestId, { status, pointsAwarded });
+    },
+
     // ── Destroy (on page unload) ─────────────────────────────────────────────
     destroy() {
         Multiplayer._cleanup();

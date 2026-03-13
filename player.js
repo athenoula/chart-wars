@@ -12,6 +12,8 @@ const Player = {
     audio: new Audio(),
     clipInterval: null,
     locked: false,
+    _myResult: null,         // last scored result for this player
+    _activeContestId: null,  // contest currently in flight
 
     // ── Initialise ───────────────────────────────────────────────────────────
     init() {
@@ -48,6 +50,18 @@ const Player = {
         document.getElementById("btn-play-again").addEventListener("click", () => {
             window.location.href = window.location.pathname;
         });
+
+        // Contest buttons
+        document.getElementById("btn-player-contest").addEventListener("click", () => {
+            document.getElementById("player-contest-form").style.display = "block";
+            document.getElementById("btn-player-contest").style.display = "none";
+            setTimeout(() => document.getElementById("player-contest-reason").focus(), 100);
+        });
+        document.getElementById("btn-player-contest-cancel").addEventListener("click", () => {
+            document.getElementById("player-contest-form").style.display = "none";
+            document.getElementById("btn-player-contest").style.display = "block";
+        });
+        document.getElementById("btn-player-contest-submit").addEventListener("click", Player._submitContest);
 
         // Remote audio play button
         const remotePlayBtn = document.getElementById("btn-play-remote");
@@ -321,6 +335,21 @@ const Player = {
             Player.timerInterval = null;
         }
 
+        // Reset contest UI for this new reveal
+        Player._activeContestId = null;
+        const contestSection = document.getElementById("player-contest-section");
+        const contestForm = document.getElementById("player-contest-form");
+        const contestBtn = document.getElementById("btn-player-contest");
+        const contestStatus = document.getElementById("player-contest-status");
+        contestSection.style.display = "none";
+        contestForm.style.display = "none";
+        contestBtn.style.display = "block";
+        contestBtn.disabled = false;
+        contestBtn.textContent = "Contest my score";
+        contestStatus.style.display = "none";
+        contestStatus.className = "player-contest-status";
+        if (contestSection) document.getElementById("player-contest-reason").value = "";
+
         // Listen for results of this question
         Multiplayer.listenToResults(Player.roomCode, Player.currentQuestion, (results) => {
             if (!results) return;
@@ -335,6 +364,7 @@ const Player = {
             // Show player's result
             const myResult = results[Player.playerId];
             if (myResult) {
+                Player._myResult = myResult;
                 const resultDiv = document.getElementById("player-result");
                 resultDiv.innerHTML = `
                     <h4 class="cyan">Your Score</h4>
@@ -346,6 +376,10 @@ const Player = {
                         <span class="round-total ${myResult.total >= 6 ? 'text-green' : myResult.total > 0 ? 'text-amber' : 'text-red'}">${myResult.total} pts</span>
                     </div>
                 `;
+                // Show contest button in remote mode (if not already contested)
+                if (Player.mode === "remote" && !Player._activeContestId) {
+                    contestSection.style.display = "block";
+                }
             }
         });
 
@@ -390,6 +424,60 @@ const Player = {
         });
 
         Player._showScreen("final");
+    },
+
+    // ── Contest Submission (Remote Mode) ─────────────────────────────────────
+    async _submitContest() {
+        const reason = document.getElementById("player-contest-reason").value.trim();
+        if (!reason) return;
+
+        const track = Player._currentTrack || {};
+        const myResult = Player._myResult || {};
+        const answer = {
+            artist: myResult.artist ? String(myResult.artist.points ?? "") : "",
+            title: myResult.title ? String(myResult.title.points ?? "") : "",
+            year: myResult.year ? String(myResult.year.points ?? "") : ""
+        };
+
+        const contestId = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        Player._activeContestId = contestId;
+
+        const contest = {
+            id: contestId,
+            mode: "remote",
+            roomCode: Player.roomCode,
+            questionNum: Player.currentQuestion,
+            track: { title: track.title || "", artist: track.artist || "", year: track.year || "" },
+            teamName: Player.playerName,
+            theirAnswer: answer,
+            reason,
+            status: "pending",
+            pointsAwarded: 0,
+            playerId: Player.playerId
+        };
+
+        // Submit to Firebase
+        await Multiplayer.writeRoomContest(Player.roomCode, contest);
+        if (Multiplayer.isAvailable()) await Multiplayer.writeContestLog(contest);
+
+        // Update UI to "awaiting" state
+        document.getElementById("player-contest-form").style.display = "none";
+        document.getElementById("btn-player-contest").style.display = "none";
+        const status = document.getElementById("player-contest-status");
+        status.textContent = "Contest submitted — awaiting GM review...";
+        status.className = "player-contest-status contest-status-awaiting";
+        status.style.display = "block";
+
+        // Listen for resolution
+        Multiplayer.listenToContestStatus(Player.roomCode, contestId, (newStatus) => {
+            if (newStatus === "approved") {
+                status.textContent = "Contest approved — points awarded!";
+                status.className = "player-contest-status contest-status-approved";
+            } else if (newStatus === "dismissed") {
+                status.textContent = "Contest dismissed.";
+                status.className = "player-contest-status contest-status-dismissed";
+            }
+        });
     },
 
     // ── Helper: Score Row ────────────────────────────────────────────────────

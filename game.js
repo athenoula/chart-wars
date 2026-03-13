@@ -405,6 +405,9 @@ const Game = {
 
         await Multiplayer.updateStatus(mp.roomCode, "playing");
 
+        // Listen for contests in real time (host is GM)
+        Multiplayer.listenToContests(mp.roomCode, Game._onContestsUpdate);
+
         Game.showScreen("play");
         Game._mpPreparePlayScreen();
     },
@@ -1382,37 +1385,91 @@ const Game = {
         const reason = document.getElementById("contest-reason").value.trim();
         if (!reason) return;
         const { teamName, guesses, track } = Game._contestPending;
+        const mp = Game.state.multiplayer;
+        const isRemote = mp.active && mp.mode === "remote";
 
         const contest = {
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-            timestamp: new Date().toISOString(),
+            mode: isRemote ? "remote" : Game.state.mode,
+            roomCode: isRemote ? mp.roomCode : null,
             questionNum: Game.state.currentQuestion,
             track: { title: track.title, artist: track.artist, year: track.year },
             teamName,
             theirAnswer: { artist: guesses.artist || "", title: guesses.title || "", year: guesses.year || "" },
             reason,
-            status: "pending",
-            pointsAwarded: 0
+            status: isRemote ? "pending" : "auto-approved",
+            pointsAwarded: isRemote ? 0 : 1
         };
 
-        // Save to localStorage log
-        const log = Game._loadContestLog();
-        log.push(contest);
-        localStorage.setItem(Game.CONTEST_KEY, JSON.stringify(log));
-
         document.getElementById("contest-modal").style.display = "none";
-        Game._renderPendingContests();
+
+        if (isRemote) {
+            // Push to Firebase for GM to review
+            Multiplayer.writeRoomContest(mp.roomCode, contest);
+            Multiplayer.writeContestLog(contest);
+            // Show "awaiting" note on the team's result card
+            Game._markCardContestPending(teamName, contest.id);
+        } else {
+            // Auto-approve: award 1 point immediately
+            if (Game.state.scores[teamName] !== undefined) {
+                Game.state.scores[teamName] += 1;
+                Game._renderScoreList("running-score-list");
+            }
+            // Log to Firebase for developer review
+            if (Multiplayer.isAvailable()) Multiplayer.writeContestLog(contest);
+            // Show immediate feedback on the card
+            Game._markCardContestApproved(teamName);
+        }
     },
 
-    _loadContestLog() {
-        try { return JSON.parse(localStorage.getItem(Game.CONTEST_KEY) || "[]"); } catch { return []; }
+    // ── Mark a result card as "contest pending" ────────────────────────────
+    _markCardContestPending(teamName, contestId) {
+        const cards = document.querySelectorAll(".team-result-card");
+        cards.forEach(card => {
+            const heading = card.querySelector("h4");
+            if (heading && heading.textContent.includes(teamName)) {
+                const btn = card.querySelector(".contest-btn");
+                if (btn) {
+                    btn.textContent = "Awaiting GM…";
+                    btn.disabled = true;
+                    btn.classList.add("contest-btn-awaiting");
+                    btn.dataset.contestId = contestId;
+                }
+            }
+        });
     },
 
-    _renderPendingContests() {
-        const log = Game._loadContestLog();
-        const pending = log.filter(c =>
-            c.status === "pending" && c.questionNum === Game.state.currentQuestion
-        );
+    // ── Mark a result card as auto-approved ────────────────────────────────
+    _markCardContestApproved(teamName) {
+        const cards = document.querySelectorAll(".team-result-card");
+        cards.forEach(card => {
+            const heading = card.querySelector("h4");
+            if (heading && heading.textContent.includes(teamName)) {
+                const btn = card.querySelector(".contest-btn");
+                if (btn) {
+                    btn.textContent = "✓ +1 pt awarded";
+                    btn.disabled = true;
+                    btn.classList.add("contest-btn-approved");
+                }
+            }
+        });
+    },
+
+    // ── Host: receive real-time contest updates from Firebase ──────────────
+    _onContestsUpdate(contests) {
+        const pending = Object.values(contests).filter(c => c.status === "pending");
+        // Update badge
+        const badge = document.getElementById("contests-pending-badge");
+        if (badge) {
+            badge.textContent = pending.length;
+            badge.style.display = pending.length > 0 ? "inline-block" : "none";
+        }
+        // Re-render pending section
+        Game._renderPendingContestsFromFirebase(contests);
+    },
+
+    _renderPendingContestsFromFirebase(contests) {
+        const pending = Object.values(contests).filter(c => c.status === "pending");
         const section = document.getElementById("pending-contests-section");
         const list = document.getElementById("pending-contests-list");
 
@@ -1438,31 +1495,33 @@ const Game = {
             `;
             div.querySelector(".contest-award-btn").addEventListener("click", () => {
                 const pts = parseInt(div.querySelector(".contest-pts-input").value) || 1;
-                Game._resolveContest(contest.id, "awarded", pts);
+                Game._resolveContestRemote(contest, pts);
             });
             div.querySelector(".contest-dismiss-btn").addEventListener("click", () => {
-                Game._resolveContest(contest.id, "dismissed", 0);
+                Game._resolveContestRemote(contest, 0);
             });
             list.appendChild(div);
         });
     },
 
-    _resolveContest(contestId, status, points) {
-        const log = Game._loadContestLog();
-        const idx = log.findIndex(c => c.id === contestId);
-        if (idx === -1) return;
-        log[idx].status = status;
-        log[idx].pointsAwarded = points;
-        localStorage.setItem(Game.CONTEST_KEY, JSON.stringify(log));
+    async _resolveContestRemote(contest, points) {
+        const mp = Game.state.multiplayer;
+        const status = points > 0 ? "approved" : "dismissed";
 
-        if (status === "awarded" && points > 0) {
-            const teamName = log[idx].teamName;
-            if (Game.state.scores[teamName] !== undefined) {
-                Game.state.scores[teamName] += points;
-                Game._renderScoreList("running-score-list");
-            }
+        // Update local score
+        let updatedStandings = null;
+        if (status === "approved" && points > 0 && Game.state.scores[contest.teamName] !== undefined) {
+            Game.state.scores[contest.teamName] += points;
+            Game._renderScoreList("running-score-list");
+            // Rebuild standings for Firebase
+            updatedStandings = {};
+            Game.state.teams.forEach(name => {
+                const key = name === "Host" ? "host" : Object.keys(mp.players).find(k => mp.players[k].name === name) || name;
+                updatedStandings[key] = { name, score: Game.state.scores[name] };
+            });
         }
-        Game._renderPendingContests();
+
+        await Multiplayer.resolveContest(mp.roomCode, contest.id, status, points, contest.teamName, updatedStandings);
     },
 
     // ── Host Answer Lock-in (Multiplayer) ─────────────────────────────────────

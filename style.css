@@ -643,6 +643,43 @@ h1, h2, h3 { margin: 0; }
 .contest-item-actions { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 .contest-pts-input { width: 60px; padding: 8px; font-size: 14px; text-align: center; }
 
+/* Contest pending badge */
+.contest-badge {
+    display: inline-block;
+    background: var(--score-wrong);
+    color: #fff;
+    font-size: 0.75em;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px var(--score-wrong);
+}
+
+/* Contest button states */
+.contest-btn-awaiting {
+    border-color: var(--score-partial);
+    color: var(--score-partial);
+    cursor: default;
+}
+.contest-btn-approved {
+    border-color: var(--score-full);
+    color: var(--score-full);
+    cursor: default;
+}
+
+/* Player-side contest status feedback */
+.player-contest-status {
+    font-size: 0.85em;
+    font-style: italic;
+    margin-top: 6px;
+    text-align: center;
+}
+.contest-status-awaiting { color: var(--score-partial); }
+.contest-status-approved { color: var(--score-full); font-weight: bold; }
+.contest-status-dismissed { color: var(--text-muted); }
+
 /* Leaderboard tabs */
 .leaderboard-tabs { margin-bottom: 12px; }
 

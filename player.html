@@ -82,6 +82,19 @@
 
                 <div id="player-result" class="team-result-card" style="width: 100%;"></div>
 
+                <!-- Contest section (remote mode only) -->
+                <div id="player-contest-section" style="display:none; width: 100%;">
+                    <button id="btn-player-contest" class="contest-btn" style="width: 100%; margin-top: 8px;">Contest my score</button>
+                    <div id="player-contest-form" style="display:none; margin-top: 8px; width: 100%;">
+                        <textarea id="player-contest-reason" class="neon-input contest-textarea" placeholder="Why should points be awarded? (e.g. alternate spelling, accepted name...)" rows="3"></textarea>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <button id="btn-player-contest-submit" class="neon-button cyan" style="flex:1;">Submit Contest</button>
+                            <button id="btn-player-contest-cancel" class="neon-button quit-btn" style="flex:1;">Cancel</button>
+                        </div>
+                    </div>
+                    <p id="player-contest-status" class="player-contest-status" style="display:none;"></p>
+                </div>
+
                 <div class="running-score" style="width: 100%;">
                     <h4>Standings</h4>
                     <ul id="standings-list" class="scoreboard-list"></ul>
