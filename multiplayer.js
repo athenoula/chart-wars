@@ -388,6 +388,26 @@ const Multiplayer = {
         await Multiplayer.updateContestLog(contestId, { status, pointsAwarded });
     },
 
+    // ── Global Survival Leaderboard ──────────────────────────────────────────
+    async saveSurvivalScore(entry) {
+        if (!Multiplayer._db) return;
+        await Multiplayer._db.ref("survivalLeaderboard").push({
+            name: entry.name,
+            score: entry.score,
+            rounds: entry.rounds,
+            date: entry.date
+        });
+    },
+
+    async getSurvivalScores() {
+        if (!Multiplayer._db) return [];
+        const snap = await Multiplayer._db.ref("survivalLeaderboard").orderByChild("score").limitToLast(10).once("value");
+        const entries = [];
+        snap.forEach(child => entries.push(child.val()));
+        entries.sort((a, b) => b.score - a.score);
+        return entries;
+    },
+
     // ── Destroy (on page unload) ─────────────────────────────────────────────
     destroy() {
         Multiplayer._cleanup();

@@ -75,6 +75,36 @@ const Leaderboard = {
         container.innerHTML = html;
     },
 
+    // ── Render from a pre-fetched entries array (e.g. Firebase) ──────────────
+    renderFromEntries(containerId, entries, isSurvival = true) {
+        const container = document.getElementById(containerId);
+        if (!entries || entries.length === 0) {
+            const modeText = isSurvival ? "survival" : "solo";
+            container.innerHTML = `<p class="subtext">No scores yet. Play a ${modeText} game to get on the board!</p>`;
+            return;
+        }
+        let html = '<ul class="scoreboard-list">';
+        entries.forEach((entry, i) => {
+            const dateStr = new Date(entry.date).toLocaleDateString("en-GB", {
+                day: "numeric", month: "short", year: "numeric"
+            });
+            const scoreDisplay = isSurvival
+                ? `${entry.score} pts (${entry.rounds} rounds)`
+                : `${entry.score}/${entry.maxPossible} (${entry.percentage}%)`;
+            html += `
+                <li ${i === 0 ? 'class="leader"' : ''}>
+                    <span>${Leaderboard._escapeHtml(entry.name)}</span>
+                    <span>
+                        ${scoreDisplay}
+                        <span class="leaderboard-meta">${dateStr}</span>
+                    </span>
+                </li>
+            `;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+    },
+
     // ── Clear leaderboard ─────────────────────────────────────────────────────
     clear(storageKey) {
         const key = storageKey || Leaderboard.STORAGE_KEY;

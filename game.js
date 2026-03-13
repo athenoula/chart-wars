@@ -1301,12 +1301,9 @@ const Game = {
                 ${Game.state.skippedCount > 0 ? `<p>Tracks skipped: ${Game.state.skippedCount}</p>` : ""}
             `;
             if (totalRounds > 0) {
-                Leaderboard.saveEntry({
-                    name: playerName,
-                    score: score,
-                    rounds: totalRounds,
-                    date: new Date().toISOString()
-                }, Leaderboard.SURVIVAL_KEY);
+                const entry = { name: playerName, score, rounds: totalRounds, date: new Date().toISOString() };
+                Leaderboard.saveEntry(entry, Leaderboard.SURVIVAL_KEY);
+                Multiplayer.saveSurvivalScore(entry).catch(() => {});
                 const saved = document.createElement("p");
                 saved.className = "cyan";
                 saved.textContent = "Score saved to survival leaderboard!";
@@ -1561,8 +1558,16 @@ const Game = {
                 document.querySelectorAll(".leaderboard-tab-btn").forEach(b => b.classList.remove("active"));
                 e.target.classList.add("active");
                 const tab = e.target.dataset.lb;
-                const key = tab === "survival" ? Leaderboard.SURVIVAL_KEY : Leaderboard.STORAGE_KEY;
-                Leaderboard.render("leaderboard-content", key);
+                if (tab === "survival") {
+                    document.getElementById("leaderboard-content").innerHTML = '<p class="subtext">Loading...</p>';
+                    Multiplayer.getSurvivalScores().then(entries => {
+                        Leaderboard.renderFromEntries("leaderboard-content", entries);
+                    }).catch(() => {
+                        Leaderboard.render("leaderboard-content", Leaderboard.SURVIVAL_KEY);
+                    });
+                } else {
+                    Leaderboard.render("leaderboard-content", Leaderboard.STORAGE_KEY);
+                }
             });
         });
     },
